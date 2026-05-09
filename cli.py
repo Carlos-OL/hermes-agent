@@ -11264,6 +11264,21 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         if canonical not in {"resume", "sessions"}:
             self._pending_resume_sessions = None
 
+        if canonical == "update":
+            import subprocess as _subprocess
+            import sys as _sys
+            _cprint("  Running Hermes update via the configured updater...")
+            try:
+                result = _subprocess.run([_sys.executable, "-m", "hermes_cli.main", "update"])
+            except Exception as exc:
+                _cprint(f"  Update failed to start: {exc}")
+            else:
+                if result.returncode == 0:
+                    _cprint("  Update command completed.")
+                else:
+                    _cprint(f"  Update command exited with status {result.returncode}.")
+            return True
+
         if canonical in {"quit", "exit"}:
             # Parse --delete flag: /exit --delete also removes the current
             # session's transcripts + SQLite history. Ported from
