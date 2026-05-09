@@ -55,7 +55,16 @@ HASS_URL=http://192.168.1.100:8123
 
 # Optional: default notify target for a bare `deliver: homeassistant`
 HASS_HOME_CHANNEL=mobile_app_my_phone
+
+# Carlos-managed safety gate: keep device control disabled by default
+HASS_ALLOW_SERVICE_CALLS=false
 ```
+
+:::warning Read-only by default
+On this managed installation, entity and state reads remain available, but
+service calls are blocked unless `HASS_ALLOW_SERVICE_CALLS=true` is explicitly
+set after control access is approved.
+:::
 
 :::info
 With the plugin installed, the `homeassistant` toolset is enabled automatically when `HASS_TOKEN` is set. Both the gateway platform and the device control tools activate from this single token.
