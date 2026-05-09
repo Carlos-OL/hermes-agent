@@ -14,6 +14,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 
 from hermes_cli.auth import AuthError, resolve_provider
+from hermes_cli.banner import _format_context_length
 from hermes_cli.colors import Colors, color
 from hermes_cli.config import get_env_path, get_env_value, get_hermes_home, load_config
 from hermes_cli.models import provider_label
@@ -109,6 +110,42 @@ def _effective_provider_label() -> str:
     return provider_label(effective)
 
 
+def _effective_provider_slug() -> str:
+    """Return the resolved provider slug used by the current CLI runtime."""
+    requested = resolve_requested_provider()
+    try:
+        effective = resolve_provider(requested)
+    except AuthError:
+        effective = requested or "auto"
+
+    if effective == "openrouter" and get_env_value("OPENAI_BASE_URL"):
+        effective = "custom"
+
+    return effective
+
+
+def _configured_context_length(config: dict) -> str:
+    """Return provider-aware context length for the configured default model."""
+    model_cfg = config.get("model") if isinstance(config, dict) else {}
+    if not isinstance(model_cfg, dict):
+        model_cfg = {}
+    model_name = _configured_model_label(config)
+    if not model_name or model_name == "(not set)":
+        return "(unknown)"
+    try:
+        from agent.model_metadata import get_model_context_length
+        ctx = get_model_context_length(
+            model_name,
+            provider=_effective_provider_slug(),
+            base_url=(model_cfg.get("base_url") or ""),
+            api_key=(model_cfg.get("api_key") or ""),
+            config_context_length=model_cfg.get("context_length"),
+        )
+    except Exception:
+        return "(unknown)"
+    return _format_context_length(int(ctx)) if ctx else "(unknown)"
+
+
 from hermes_constants import is_termux as _is_termux
 
 
@@ -161,6 +198,7 @@ def show_status(args):
 
     print(f"  Model:        {_configured_model_label(config)}")
     print(f"  Provider:     {_effective_provider_label()}")
+    print(f"  Context:      {_configured_context_length(config)}")
 
     # =========================================================================
     # API Keys

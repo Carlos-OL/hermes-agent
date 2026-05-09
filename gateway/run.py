@@ -18003,6 +18003,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                     _msg_model,
                     base_url=_msg_base_url,
                     api_key=_msg_runtime.get("api_key") or "",
+                    provider=getattr(self, "_provider", "") or _msg_runtime.get("provider") or "",
                     config_context_length=_msg_config_ctx,
                     provider=_msg_runtime.get("provider") or "",
                     custom_providers=_msg_custom_providers,
