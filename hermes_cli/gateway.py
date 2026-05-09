@@ -15,6 +15,8 @@ import subprocess
 import sys
 import textwrap
 import time
+from xml.sax.saxutils import escape as xml_escape
+from xml.sax.saxutils import escape as xml_escape
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -4585,6 +4587,13 @@ def generate_launchd_plist() -> str:
     log_dir = get_hermes_home() / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     label = get_launchd_label()
+    profile_arg = _profile_arg(hermes_home)
+    cfg = read_raw_config() or {}
+    gateway_cfg = cfg.get("gateway") if isinstance(cfg, dict) else {}
+    if not isinstance(gateway_cfg, dict):
+        gateway_cfg = {}
+    custom_prog_args = gateway_cfg.get("macos_program_arguments")
+
     # Build a sane PATH for the launchd plist.  launchd provides only a
     # minimal default (/usr/bin:/bin:/usr/sbin:/sbin) which misses Homebrew,
     # nvm, cargo, etc.  We prepend venv/bin and node_modules/.bin (matching
@@ -4604,15 +4613,18 @@ def generate_launchd_plist() -> str:
 
     err_path = log_dir / "gateway.error.log"
 
-    # Build ProgramArguments array, including --profile when using a named profile.
-    # The stderr wrapper preserves launchd's restart semantics while adding
-    # timestamps to raw stderr lines before they land in gateway.error.log.
-    prog_args = [
-        f"<string>{part}</string>"
-        for part in _timestamped_stderr_gateway_command(
-            err_path, external_supervisor=True
-        )
-    ]
+    if isinstance(custom_prog_args, list) and custom_prog_args and all(isinstance(p, str) and p.strip() for p in custom_prog_args):
+        prog_args = [f"<string>{xml_escape(p)}</string>" for p in custom_prog_args]
+    else:
+        # Build ProgramArguments array, including --profile when using a named profile.
+        # The stderr wrapper preserves launchd's restart semantics while adding
+        # timestamps to raw stderr lines before they land in gateway.error.log.
+        prog_args = [
+            f"<string>{part}</string>"
+            for part in _timestamped_stderr_gateway_command(
+                err_path, external_supervisor=True
+            )
+        ]
     prog_args_xml = "\n        ".join(prog_args)
 
     # Persist the configured RLIMIT_NOFILE floor into the service definition
