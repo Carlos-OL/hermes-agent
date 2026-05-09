@@ -2396,6 +2396,40 @@ from hermes_cli.update_receipt import update_receipt_scope
 
 
 @update_receipt_scope()
+def _carlos_managed_update_script() -> Path | None:
+    """Return Carlos's managed updater when this install has one configured."""
+    if os.getenv("HERMES_DISABLE_CARLOS_UPDATE_GUARD", "").lower() in {"1", "true", "yes", "on"}:
+        return None
+    script = Path("/Users/macmini/.hermes/scripts/hermes-carlos-update.py")
+    if script.exists():
+        return script
+    return None
+
+
+def _run_carlos_managed_update(args) -> bool:
+    """Route ``hermes update`` through Carlos's fork/rebase guard when present.
+
+    Returns True when the managed updater handled the command. This protects
+    terminal ``hermes update`` and callers that shell out to it, while leaving
+    upstream's normal updater untouched everywhere else.
+    """
+    script = _carlos_managed_update_script()
+    if script is None:
+        return False
+
+    mode = "dry-run" if getattr(args, "check", False) else "apply"
+    cmd = [sys.executable, str(script), mode]
+    if getattr(args, "gateway", False):
+        cmd.append("--gateway")
+
+    print("⚕ Carlos-managed Hermes update workflow")
+    print(f"→ Running: {script} {mode}")
+    print()
+    result = subprocess.run(cmd)
+    if result.returncode:
+        sys.exit(result.returncode)
+    return True
+
 def cmd_update(args):
     """Update Hermes Agent: hangup protection + update lock around ``_cmd_update_impl``."""
     # Marks this frame as the CURRENT updater for
@@ -2405,6 +2439,9 @@ def cmd_update(args):
     from hermes_cli.update_owning_install import retarget_to_owning_install
 
     retarget_to_owning_install(PROJECT_ROOT)
+    if _run_carlos_managed_update(args):
+        return
+
     if _update_preflight_handled(args):
         return
     gateway_mode = getattr(args, "gateway", False)
