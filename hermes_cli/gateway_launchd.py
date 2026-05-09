@@ -363,12 +363,24 @@ def generate_launchd_plist() -> str:
     sane_path = ":".join(dict.fromkeys(priority_dirs + [p for p in os.environ.get("PATH", "").split(":") if p]))
 
     # ProgramArguments (incl. --profile); the stderr wrapper keeps launchd restart semantics while timestamping
-    # stderr; the osascript wrapper gives the job a Local Network identity (see launchd_program_arguments).
+    # stderr; the osascript wrapper gives the default job a Local Network identity (see launchd_program_arguments).
+    # A managed installation may instead supply an audited launcher (Carlos uses a 1Password-backed wrapper).
+    cfg = _gw().read_raw_config() or {}
+    gateway_cfg = cfg.get("gateway") if isinstance(cfg, dict) else {}
+    if not isinstance(gateway_cfg, dict):
+        gateway_cfg = {}
+    custom_prog_args = gateway_cfg.get("macos_program_arguments")
     stdout_log, stderr_log = log_dir / "gateway.log", log_dir / "gateway.error.log"
-    command = _timestamped_stderr_gateway_command(stderr_log, external_supervisor=True)
-    prog_args_xml = "\n        ".join(
-        f"<string>{escape(part)}</string>" for part in launchd_program_arguments(command, stdout_log, stderr_log)
-    )
+    if isinstance(custom_prog_args, list) and custom_prog_args and all(
+        isinstance(part, str) and part.strip() for part in custom_prog_args
+    ):
+        prog_args_xml = "\n        ".join(f"<string>{escape(part)}</string>" for part in custom_prog_args)
+    else:
+        command = _timestamped_stderr_gateway_command(stderr_log, external_supervisor=True)
+        prog_args_xml = "\n        ".join(
+            f"<string>{escape(part)}</string>"
+            for part in launchd_program_arguments(command, stdout_log, stderr_log)
+        )
 
     # Persist the configured RLIMIT_NOFILE floor: launchd defaults to soft 256, and every plist
     # rewrite would otherwise strip a manual limit and reintroduce EMFILE crashes.
