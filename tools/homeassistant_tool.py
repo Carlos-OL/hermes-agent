@@ -13,6 +13,7 @@ The HA instance URL is read from ``HASS_URL`` (default: http://homeassistant.loc
 import asyncio
 import json
 import logging
+import os
 import re
 from typing import Any, Dict, Optional
 
@@ -59,6 +60,13 @@ _BLOCKED_DOMAINS = frozenset({
     "hassio",           # addon control, host shutdown/reboot, stdin to containers
     "rest_command",     # HTTP requests from HA server (SSRF vector)
 })
+
+
+def _service_calls_enabled() -> bool:
+    """Return True only when HA service calls are explicitly enabled."""
+    return os.getenv("HASS_ALLOW_SERVICE_CALLS", "").strip().lower() in {
+        "1", "true", "yes", "on"
+    }
 
 
 def _get_headers(token: str = "") -> Dict[str, str]:
@@ -280,6 +288,12 @@ def _handle_call_service(args: dict, **kw) -> str:
             data = json.loads(data) if data.strip() else None
         except json.JSONDecodeError as e:
             return tool_error(f"Invalid JSON string in 'data' parameter: {e}")
+
+    if not _service_calls_enabled():
+        return json.dumps({
+            "error": "Home Assistant service calls are disabled by default for read-only mode. "
+            "Set HASS_ALLOW_SERVICE_CALLS=true only after reviewing safeguards and approving control access."
+        })
 
     try:
         result = _run_async(_async_call_service(domain, service, entity_id, data))

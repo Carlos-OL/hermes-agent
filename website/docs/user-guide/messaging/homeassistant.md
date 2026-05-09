@@ -32,7 +32,17 @@ HASS_TOKEN=your-long-lived-access-token
 
 # Optional: HA URL (default: http://homeassistant.local:8123)
 HASS_URL=http://192.168.1.100:8123
+
+# Safety gate: keep write/control actions disabled during read-only onboarding
+HASS_ALLOW_SERVICE_CALLS=false
 ```
+
+:::warning Read-only first
+With `HASS_ALLOW_SERVICE_CALLS` unset or set to `false`, Hermes can list entities,
+read entity state, and list available services, but `ha_call_service` refuses to
+control devices. Set `HASS_ALLOW_SERVICE_CALLS=true` only after you have reviewed
+what entities Hermes can see and are ready to allow control actions.
+:::
 
 :::info
 The `homeassistant` toolset is automatically enabled when `HASS_TOKEN` is set. Both the gateway platform and the device control tools activate from this single token.
@@ -190,6 +200,12 @@ Outbound messages from the agent are delivered as **Home Assistant persistent no
 ## Security
 
 The Home Assistant tools enforce security restrictions:
+
+:::warning Read-only default
+Service calls are disabled unless `HASS_ALLOW_SERVICE_CALLS=true` is explicitly set.
+This keeps first-time setup in read-only mode: entity listing, state reads, and
+service discovery work, while device control fails closed.
+:::
 
 :::warning Blocked Domains
 The following service domains are **blocked** to prevent arbitrary code execution on the HA host:
