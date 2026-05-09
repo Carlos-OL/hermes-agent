@@ -139,13 +139,20 @@ def _spawn_detached_update(hermes_cmd, output_path, exit_code_path) -> None:
              sys.executable, "-m", "hermes_cli.main", "update", "--gateway"],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **windows_detach_popen_kwargs())
         return
-    hermes_cmd_str = " ".join(shlex.quote(part) for part in hermes_cmd)
-    update_cmd = (
-        f"PYTHONUNBUFFERED=1 {hermes_cmd_str} update --gateway"
-        f" > {shlex.quote(str(output_path))} 2>&1; "
-        # Avoid `status=$?`: `status` is read-only in zsh and this template is reused in
-        # macOS/zsh operator wrappers, so keep it zsh-safe even though bash runs it here.
-        f"rc=$?; printf '%s' \"$rc\" > {shlex.quote(str(exit_code_path))}")
+    managed_update_script = Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes"))) / "scripts" / "hermes-carlos-update.py"
+    if managed_update_script.exists() and os.getenv("HERMES_DISABLE_CARLOS_UPDATE_GUARD", "").lower() not in {"1", "true", "yes", "on"}:
+        update_cmd = (
+            f"PYTHONUNBUFFERED=1 {shlex.quote(sys.executable)} {shlex.quote(str(managed_update_script))} apply --gateway"
+            f" > {shlex.quote(str(output_path))} 2>&1; "
+            f"rc=$?; printf '%s' \"$rc\" > {shlex.quote(str(exit_code_path))}")
+    else:
+        hermes_cmd_str = " ".join(shlex.quote(part) for part in hermes_cmd)
+        update_cmd = (
+            f"PYTHONUNBUFFERED=1 {hermes_cmd_str} update --gateway"
+            f" > {shlex.quote(str(output_path))} 2>&1; "
+            # Avoid `status=$?`: `status` is read-only in zsh and this template is reused in
+            # macOS/zsh operator wrappers, so keep it zsh-safe even though bash runs it here.
+            f"rc=$?; printf '%s' \"$rc\" > {shlex.quote(str(exit_code_path))}")
     # Preferred: setsid creates a new session, fully detached; fallback start_new_session=True
     # calls os.setsid() in the child.
     setsid_bin = shutil.which("setsid")
