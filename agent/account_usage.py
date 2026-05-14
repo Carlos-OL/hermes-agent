@@ -322,14 +322,26 @@ def _codex_backend_urls(base_url: str) -> tuple[str, str, str]:
     return (prefix + "/usage", prefix + "/rate-limit-reset-credits", prefix + "/rate-limit-reset-credits/consume")
 
 
+
+def _codex_pool_label_for_token(token: str) -> Optional[str]:
+    """Best-effort safe label for the pool credential used by /usage."""
+    try:
+        from agent.credential_pool import load_pool
+        for entry in load_pool("openai-codex").entries():
+            if entry.runtime_api_key == token or (entry.access_token or "") == token:
+                return entry.label
+    except Exception:
+        logger.debug("codex ▸ /usage credential label lookup failed", exc_info=True)
+    return None
+
 def _resolve_codex_usage_credentials(
     base_url: Optional[str], api_key: Optional[str], *, force_refresh: bool = False,
-) -> tuple[str, str, Optional[str]]:
+) -> tuple[str, str, Optional[str], Optional[str]]:
     """Codex quota credentials: explicit live-agent creds → native runtime resolver (itself pool-aware) → direct
     pool select. Native OAuth stores device-code logins in the pool, so the singleton store alone is not enough."""
     explicit_key = str(api_key or "").strip()
     if explicit_key and not force_refresh:
-        return explicit_key, str(base_url or "").strip(), None
+        return explicit_key, str(base_url or "").strip(), None, _codex_pool_label_for_token(explicit_key)
     if explicit_key:
         # Forced retry for a live agent's own credential: refresh THAT credential (singleton or the
         # pool entry that issued it), never re-resolve — that would render another pool account's usage.
@@ -461,7 +473,7 @@ def _fetch_codex_account_usage_read_only(
 def _fetch_codex_account_usage_impl(
     base_url: Optional[str] = None, api_key: Optional[str] = None, *, read_only: bool = False,
 ) -> Optional[AccountUsageSnapshot]:
-    token, resolved_base_url, account_id = _resolve_codex_usage_credentials(base_url, api_key)
+    token, resolved_base_url, account_id, credential_label = _resolve_codex_usage_credentials(base_url, api_key)
     try:
         payload = _get_json(
             _codex_backend_urls(resolved_base_url)[0], _codex_headers(token, account_id), timeout=15.0,
@@ -472,7 +484,7 @@ def _fetch_codex_account_usage_impl(
         if read_only:
             # Never refresh/rotate on the picker's read-only path — surface the failure.
             raise
-        token, resolved_base_url, account_id = _resolve_codex_usage_credentials(
+        token, resolved_base_url, account_id, credential_label = _resolve_codex_usage_credentials(
             base_url, api_key, force_refresh=True,
         )
         payload = _get_json(
@@ -484,6 +496,8 @@ def _fetch_codex_account_usage_impl(
     count = _codex_banked_resets(payload)
     if count > 0:
         details.append(f"You have {count} reset{_plural(count)} banked - use /usage reset to activate")
+    if credential_label:
+        details.append(f"Credential: {credential_label}")
     credits, balance = payload.get("credits") or {}, (payload.get("credits") or {}).get("balance")
     if credits.get("has_credits") and _is_num(balance):
         details.append(f"Credits balance: ${float(balance):.2f}")
@@ -583,7 +597,7 @@ def redeem_codex_reset_credit(
     next credit). Never raises: every failure returns a result."""
     import uuid
     try:
-        token, resolved_base_url, account_id = _resolve_codex_usage_credentials(base_url, api_key)
+        token, resolved_base_url, account_id, _credential_label = _resolve_codex_usage_credentials(base_url, api_key)
     except Exception:
         return _unavailable("No Codex credentials available. Run `hermes auth` to sign in with your ChatGPT account.")
     redeem_request_id = str(uuid.uuid4())
@@ -611,7 +625,7 @@ def redeem_codex_reset_credit(
                 if exc.response.status_code != 401 or attempt > 0:
                     raise
                 try:
-                    token, resolved_base_url, account_id = _resolve_codex_usage_credentials(
+                    token, resolved_base_url, account_id, _credential_label = _resolve_codex_usage_credentials(
                         base_url, api_key, force_refresh=True,
                     )
                 except Exception:

@@ -398,3 +398,19 @@ def test_codex_usage_401_retry_refreshes_the_explicit_credential_not_another_acc
     assert snapshot is not None
     assert refresh_hints == ["pool-B-revoked"]
     assert request_calls == ["Bearer pool-B-revoked", "Bearer pool-B-fresh"]
+
+
+def test_codex_usage_displays_pooled_credential_label(monkeypatch, codex_usage_payload):
+    calls = []
+    monkeypatch.setattr(account_usage.httpx, "Client", lambda timeout: _FakeClient(calls, codex_usage_payload))
+    monkeypatch.setattr(
+        account_usage, "resolve_codex_runtime_credentials",
+        lambda **kwargs: {"api_key": "pooled-token", "base_url": "https://chatgpt.com/backend-api/codex"},
+    )
+    monkeypatch.setattr(account_usage, "_read_codex_tokens", lambda: {"tokens": {}})
+    import agent.credential_pool as credential_pool
+    entry = SimpleNamespace(runtime_api_key="pooled-token", runtime_base_url="https://chatgpt.com/backend-api/codex", access_token="pooled-token", label="GPT1")
+    monkeypatch.setattr(credential_pool, "load_pool", lambda provider: SimpleNamespace(entries=lambda: [entry]))
+    snapshot = account_usage.fetch_account_usage("openai-codex")
+    assert snapshot is not None
+    assert "Credential: GPT1" in snapshot.details
