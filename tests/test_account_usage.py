@@ -95,6 +95,53 @@ def test_fetch_account_usage_codex(monkeypatch):
     assert "Credits balance: $12.50" in snapshot.details
 
 
+def test_fetch_account_usage_codex_falls_back_to_selected_pool_entry(monkeypatch):
+    from hermes_cli.auth import AuthError
+
+    class _Entry:
+        runtime_api_key = "pool-token"
+        runtime_base_url = "https://chatgpt.com/backend-api/codex"
+        access_token = "pool-token"
+        label = "account-2"
+
+    class _Pool:
+        def select(self):
+            return _Entry()
+
+        def entries(self):
+            return [_Entry()]
+
+    monkeypatch.setattr(
+        "agent.account_usage.resolve_codex_runtime_credentials",
+        lambda refresh_if_expiring=True: (_ for _ in ()).throw(
+            AuthError("No Codex credentials stored", provider="openai-codex")
+        ),
+    )
+    monkeypatch.setattr("agent.account_usage._read_codex_tokens", lambda: {"tokens": {}})
+    monkeypatch.setattr("agent.credential_pool.load_pool", lambda provider: _Pool())
+    monkeypatch.setattr(
+        "agent.account_usage.httpx.Client",
+        lambda timeout=15.0: _Client(
+            {
+                "plan_type": "pro",
+                "rate_limit": {
+                    "primary_window": {
+                        "used_percent": 5,
+                        "reset_at": 1_900_000_000,
+                    },
+                },
+            }
+        ),
+    )
+
+    snapshot = fetch_account_usage("openai-codex")
+
+    assert snapshot is not None
+    assert snapshot.plan == "Pro"
+    assert snapshot.windows[0].used_percent == 5.0
+    assert "Credential: account-2" in snapshot.details
+
+
 def test_render_account_usage_lines_includes_reset_and_provider():
     snapshot = AccountUsageSnapshot(
         provider="openai-codex",

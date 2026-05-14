@@ -449,20 +449,33 @@ def _resolve_codex_usage_url(base_url: str) -> str:
     return _codex_backend_urls(base_url)[0]
 
 
+def _codex_pool_label_for_token(token: str) -> Optional[str]:
+    try:
+        from agent.credential_pool import load_pool
+
+        for entry in load_pool("openai-codex").entries():
+            if entry.runtime_api_key == token or (entry.access_token or "") == token:
+                return entry.label
+    except Exception:
+        logger.debug("codex ▸ /usage credential label lookup failed", exc_info=True)
+    return None
+
+
 def _resolve_codex_usage_credentials(
     base_url: Optional[str],
     api_key: Optional[str],
-) -> tuple[str, str, Optional[str]]:
+) -> tuple[str, str, Optional[str], Optional[str]]:
     """Resolve Codex quota credentials from the native runtime path.
 
     Prefer explicit live-agent credentials, then the legacy singleton OAuth
     state, then the credential pool.  Hermes's native OAuth setup now stores
     device-code logins in the pool, so quota diagnostics must not depend only
-    on the older singleton store.
+    on the older singleton store.  When a pool credential is identifiable,
+    return its safe label so `/usage` can show which pooled account was used.
     """
     explicit_key = str(api_key or "").strip()
     if explicit_key:
-        return explicit_key, str(base_url or "").strip(), None
+        return explicit_key, str(base_url or "").strip(), None, _codex_pool_label_for_token(explicit_key)
 
     # Tier 2: the native runtime resolver. It ALREADY falls back to the
     # credential pool when the singleton is empty (see
@@ -489,7 +502,8 @@ def _resolve_codex_usage_credentials(
         except AuthError:
             # Pool-only creds carry no singleton account_id; header is optional.
             logger.debug("codex ▸ /usage account_id read failed (best-effort)", exc_info=True)
-        return creds["api_key"], str(creds.get("base_url", "") or "").strip(), account_id
+        token = creds["api_key"]
+        return token, str(creds.get("base_url", "") or "").strip(), account_id, _codex_pool_label_for_token(token)
     except AuthError:
         logger.debug("codex ▸ /usage runtime resolver returned no creds; trying pool", exc_info=True)
 
@@ -504,14 +518,14 @@ def _resolve_codex_usage_credentials(
     entry = pool.select()
     if entry is None:
         raise RuntimeError("No available openai-codex credential in credential pool")
-    return entry.runtime_api_key, str(entry.runtime_base_url or base_url or "").strip(), None
+    return entry.runtime_api_key, str(entry.runtime_base_url or base_url or "").strip(), None, entry.label
 
 
 def _fetch_codex_account_usage(
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
 ) -> Optional[AccountUsageSnapshot]:
-    token, resolved_base_url, account_id = _resolve_codex_usage_credentials(base_url, api_key)
+    token, resolved_base_url, account_id, credential_label = _resolve_codex_usage_credentials(base_url, api_key)
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/json",
@@ -546,6 +560,8 @@ def _fetch_codex_account_usage(
         details.append(
             f"You have {count} reset{plural} banked - use /usage reset to activate"
         )
+    if credential_label:
+        details.append(f"Credential: {credential_label}")
     credits = payload.get("credits") or {}
     if credits.get("has_credits"):
         balance = credits.get("balance")
