@@ -196,8 +196,16 @@ def _get_firecrawl_client(capability: Optional[str] = None) -> Any:
 
     # (resolved config, log detail, error message) per selection state; the message is built lazily.
     if selected == NOUS_MANAGED_PROVIDER:
-        resolved, log, message = _managed(), "the Nous Subscription web selection is stored but the tool gateway is unavailable.", lambda: selection_error(
-            "web", NOUS_MANAGED_PROVIDER, "the Nous Tool Gateway is not available (not entitled or unreachable)")
+        managed = _managed()
+        if managed is not None:
+            resolved, log, message = managed, "the Nous Subscription web selection is stored but the tool gateway is unavailable.", lambda: selection_error(
+                "web", NOUS_MANAGED_PROVIDER, "the Nous Tool Gateway is not available (not entitled or unreachable)")
+        elif direct_config is not None:
+            logger.warning("Nous-managed Firecrawl gateway is unavailable; using the configured direct Firecrawl fallback.")
+            resolved, log, message = direct_config, "managed gateway unavailable; configured direct Firecrawl fallback selected.", _unconfigured_message
+        else:
+            resolved, log, message = None, "the Nous Subscription web selection is stored but the tool gateway is unavailable.", lambda: selection_error(
+                "web", NOUS_MANAGED_PROVIDER, "the Nous Tool Gateway is not available (not entitled or unreachable)")
     elif selected is not None or _is_explicit_firecrawl_selection():
         # Stored vendor selection (shared name, or a per-capability key naming firecrawl): direct only (no
         # credentials → explicit selection unlocks keyless cloud mode). A per-capability key naming ANOTHER
