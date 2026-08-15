@@ -237,21 +237,31 @@ def _get_firecrawl_client() -> Any:
             "firecrawl", token_reader=_wt._read_nous_access_token
         )
         if managed_gateway is None:
-            logger.error(
-                "Firecrawl client initialization failed: "
-                "missing direct config and tool-gateway auth."
+            if direct_config is None:
+                logger.error(
+                    "Firecrawl client initialization failed: "
+                    "missing direct config and tool-gateway auth."
+                )
+                _raise_web_backend_configuration_error()
+            # A configured direct key is an intentional continuity backup.
+            # Prefer the managed gateway while it is authenticated, but never
+            # turn an expired/revoked portal login into a total web outage.
+            logger.warning(
+                "Nous-managed Firecrawl gateway is unavailable; using the "
+                "configured direct Firecrawl fallback."
             )
-            _raise_web_backend_configuration_error()
-
-        kwargs = {
-            "api_key": managed_gateway.nous_user_token,
-            "api_url": managed_gateway.gateway_origin,
-        }
-        client_config = (
-            "tool-gateway",
-            kwargs["api_url"],
-            managed_gateway.nous_user_token,
-        )
+            assert direct_config is not None
+            kwargs, client_config = direct_config
+        else:
+            kwargs = {
+                "api_key": managed_gateway.nous_user_token,
+                "api_url": managed_gateway.gateway_origin,
+            }
+            client_config = (
+                "tool-gateway",
+                kwargs["api_url"],
+                managed_gateway.nous_user_token,
+            )
 
     cached = getattr(_wt, "_firecrawl_client", None)
     cached_config = getattr(_wt, "_firecrawl_client_config", None)
