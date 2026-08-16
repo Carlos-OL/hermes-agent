@@ -18005,7 +18005,6 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                     api_key=_msg_runtime.get("api_key") or "",
                     provider=getattr(self, "_provider", "") or _msg_runtime.get("provider") or "",
                     config_context_length=_msg_config_ctx,
-                    provider=_msg_runtime.get("provider") or "",
                     custom_providers=_msg_custom_providers,
                 )
                 _ctx_result = await preprocess_context_references_async(
