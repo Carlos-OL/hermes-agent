@@ -323,13 +323,32 @@ def _codex_backend_urls(base_url: str) -> tuple[str, str, str]:
 
 
 
+def _safe_codex_pool_label(entry: Any) -> Optional[str]:
+    """Short user label for a pool row, rejecting labels that contain or resemble credentials."""
+    full_label = " ".join(str(getattr(entry, "label", "") or "").split())
+    secrets = [
+        str(getattr(entry, name, "") or "").strip()
+        for name in ("runtime_api_key", "access_token", "refresh_token")
+    ]
+    # Validate the complete label before truncating it. Truncating first could turn
+    # ``"Work " + <long token>`` into a user-visible token prefix that no longer
+    # compares equal to, or contains, the full secret.
+    if not full_label or any(
+        secret and (full_label in secret or secret in full_label) for secret in secrets
+    ):
+        return None
+    if len(full_label) >= 24 and "@" not in full_label and not any(char.isspace() for char in full_label):
+        return None
+    return full_label[:80]
+
+
 def _codex_pool_label_for_token(token: str) -> Optional[str]:
     """Best-effort safe label for the pool credential used by /usage."""
     try:
         from agent.credential_pool import load_pool
         for entry in load_pool("openai-codex").entries():
-            if entry.runtime_api_key == token or (entry.access_token or "") == token:
-                return entry.label
+            if getattr(entry, "runtime_api_key", "") == token or getattr(entry, "access_token", "") == token:
+                return _safe_codex_pool_label(entry)
     except Exception:
         logger.debug("codex ▸ /usage credential label lookup failed", exc_info=True)
     return None
@@ -354,7 +373,8 @@ def _resolve_codex_usage_credentials(
             entry = load_pool("openai-codex").try_refresh_matching(api_key_hint=explicit_key)
             if entry is None:
                 raise RuntimeError("Could not refresh the Codex credential this session runs on")
-            return entry.runtime_api_key, _codex_pool_route_base_url(entry.runtime_base_url or base_url), None
+            return (entry.runtime_api_key, _codex_pool_route_base_url(entry.runtime_base_url or base_url),
+                    None, _safe_codex_pool_label(entry))
     # Only AuthError is caught so tier 3 can run: a broad except would mask a transient refresh/network failure
     # and hand back a DIFFERENT pool account's usage; such errors must propagate to the fail-open outer guard.
     # account_id is best-effort: a partial singleton store must not sink a usable credential.
@@ -375,7 +395,9 @@ def _resolve_codex_usage_credentials(
         except AuthError:
             # Pool-only creds carry no singleton account_id; header is optional.
             logger.debug("codex ▸ /usage account_id read failed (best-effort)", exc_info=True)
-        return creds["api_key"], str(creds.get("base_url", "") or "").strip(), account_id
+        token = creds["api_key"]
+        return (token, str(creds.get("base_url", "") or "").strip(), account_id,
+                _codex_pool_label_for_token(token))
     except AuthError:
         logger.debug("codex ▸ /usage runtime resolver returned no creds; trying pool", exc_info=True)
     # Tier 3: pool credentials have no account_id concept → header omitted.
@@ -384,7 +406,8 @@ def _resolve_codex_usage_credentials(
     if entry is None:
         raise RuntimeError("No available openai-codex credential in credential pool")
     # Pool rows keep the canonical URL; a gateway key must go to its route host, not chatgpt.com (#121486).
-    return entry.runtime_api_key, _codex_pool_route_base_url(entry.runtime_base_url or base_url), None
+    return (entry.runtime_api_key, _codex_pool_route_base_url(entry.runtime_base_url or base_url),
+            None, _safe_codex_pool_label(entry))
 
 
 def _codex_banked_resets(payload: dict) -> int:

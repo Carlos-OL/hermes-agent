@@ -245,6 +245,7 @@ export interface SessionUndoResponse {
 }
 
 export interface SessionUsageResponse {
+  account_lines?: string[]
   active_subagents?: number
   avg_latency_s?: number
   avg_tps?: number

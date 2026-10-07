@@ -625,7 +625,7 @@ class GatewayStatusCommandsMixin:
         async def _codex_snapshot(target):
             return await _quiet(lambda: asyncio.to_thread(
                 fetch_account_usage, "openai-codex", base_url=target.base_url,
-                api_key=target.api_key, read_only=True))
+                api_key=target.api_key, read_only=True, identity_id=target.identity_id))
 
         codex_snapshots = await asyncio.gather(
             *(_codex_snapshot(target) for target in codex_targets)) if codex_targets else []

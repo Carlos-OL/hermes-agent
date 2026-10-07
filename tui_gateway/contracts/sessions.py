@@ -502,11 +502,12 @@ class SessionUsageParams(SessionParams):
 
 
 class SessionUsageResult(Usage):
+    account_lines: list[str] | None = None
     credits_lines: list[str] | None = None
 
 
 method("session.usage", params=SessionUsageParams, result=SessionUsageResult,
-       doc="Token / context / cost counters for the session (+ Nous credit lines when available).")
+       doc="Session token/context/cost counters plus Codex account limits and Nous credits when available.")
 
 
 class SessionContextBreakdownParams(SessionParams):

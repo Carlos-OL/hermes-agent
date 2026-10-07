@@ -317,7 +317,7 @@ def test_redeem_retries_401_with_forced_refresh(monkeypatch):
     def resolve(base_url, api_key, *, force_refresh=False):
         credential_calls.append(force_refresh)
         token = "fresh-token" if force_refresh else "revoked-token"
-        return token, "https://chatgpt.com/backend-api/codex", None
+        return token, "https://chatgpt.com/backend-api/codex", None, None
 
     class Client(_FakeResetClient):
         def get(self, url, headers):
@@ -409,8 +409,42 @@ def test_codex_usage_displays_pooled_credential_label(monkeypatch, codex_usage_p
     )
     monkeypatch.setattr(account_usage, "_read_codex_tokens", lambda: {"tokens": {}})
     import agent.credential_pool as credential_pool
-    entry = SimpleNamespace(runtime_api_key="pooled-token", runtime_base_url="https://chatgpt.com/backend-api/codex", access_token="pooled-token", label="GPT1")
+    entry = SimpleNamespace(runtime_api_key="pooled-token", base_url="https://chatgpt.com/backend-api/codex",
+                            runtime_base_url="https://chatgpt.com/backend-api/codex", access_token="pooled-token",
+                            refresh_token="", label="GPT1")
     monkeypatch.setattr(credential_pool, "load_pool", lambda provider: SimpleNamespace(entries=lambda: [entry]))
     snapshot = account_usage.fetch_account_usage("openai-codex")
     assert snapshot is not None
     assert "Credential: GPT1" in snapshot.details
+
+
+def test_codex_usage_never_renders_a_secret_bearing_pool_label(monkeypatch, codex_usage_payload):
+    calls = []
+    secret = "sk-secret-value-that-must-never-render"
+    monkeypatch.setattr(account_usage.httpx, "Client", lambda timeout: _FakeClient(calls, codex_usage_payload))
+    monkeypatch.setattr(
+        account_usage, "resolve_codex_runtime_credentials",
+        lambda **kwargs: {"api_key": secret, "base_url": "https://chatgpt.com/backend-api/codex"},
+    )
+    monkeypatch.setattr(account_usage, "_read_codex_tokens", lambda: {"tokens": {}})
+    import agent.credential_pool as credential_pool
+    entry = SimpleNamespace(runtime_api_key=secret, runtime_base_url=None, access_token=secret,
+                            refresh_token="", label=secret)
+    monkeypatch.setattr(credential_pool, "load_pool", lambda provider: SimpleNamespace(entries=lambda: [entry]))
+
+    snapshot = account_usage.fetch_account_usage("openai-codex")
+
+    assert snapshot is not None
+    assert secret not in "\n".join(snapshot.details)
+
+
+def test_codex_usage_rejects_a_long_label_that_embeds_a_secret_after_safe_prefix():
+    secret = "sk-" + "s" * 120
+    entry = SimpleNamespace(
+        runtime_api_key=secret, access_token=secret, refresh_token="",
+        label="Work account " + secret,
+    )
+
+    label = account_usage._safe_codex_pool_label(entry)
+
+    assert label is None

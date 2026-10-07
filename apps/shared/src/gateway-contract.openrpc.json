@@ -3572,7 +3572,7 @@
     },
     {
       "name": "session.usage",
-      "summary": "Token / context / cost counters for the session (+ Nous credit lines when available).",
+      "summary": "Session token/context/cost counters plus Codex account limits and Nous credits when available.",
       "params": [
         {
           "name": "params",
@@ -32524,6 +32524,21 @@
             ],
             "default": null,
             "title": "Cost Status"
+          },
+          "account_lines": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Account Lines"
           },
           "credits_lines": {
             "anyOf": [

@@ -12,6 +12,9 @@ attribute requests to the row that actually served them.
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
+from dataclasses import replace
 import logging
 from typing import Any, List, NamedTuple, Optional, Tuple
 
@@ -41,6 +44,7 @@ class CredentialUsageTarget(NamedTuple):
     display: str
     api_key: str
     base_url: Optional[str]
+    identity_id: Optional[str] = None
 
 
 def short_credential_id(entry_id: Any) -> str:
@@ -108,6 +112,8 @@ def load_codex_usage_targets() -> List[CredentialUsageTarget]:
     the strategy's current entry and request counters are untouched. Returned tokens are consumed
     only by ``/usage``'s read-only fetcher and must never be included in user-visible output.
     """
+    from agent.account_usage_cache import _identity_id_for
+
     pool = load_codex_pool()
     targets: List[CredentialUsageTarget] = []
     for listed in pool.entries():
@@ -115,8 +121,51 @@ def load_codex_usage_targets() -> List[CredentialUsageTarget]:
         api_key = str(entry.runtime_api_key or "").strip()
         if api_key:
             targets.append(CredentialUsageTarget(
-                credential_display(entry), api_key, entry.runtime_base_url or None))
+                credential_display(entry), api_key, entry.runtime_base_url or None,
+                _identity_id_for(CODEX_PROVIDER, entry)))
     return targets
+
+
+def codex_pool_usage_lines(*, markdown: bool = False) -> List[str]:
+    """Render quota blocks for every configured Codex credential, in pool order.
+
+    Quota reads are concurrent and read-only: they neither select nor rotate the active pool row.
+    A failed account is omitted without hiding healthy siblings. Tokens remain inside the fetch
+    closure and are never included in the returned lines or logs.
+    """
+    from agent.account_usage import fetch_account_usage, render_account_usage_lines
+
+    targets = load_codex_usage_targets()
+    if not targets:
+        return []
+
+    def _fetch(target: CredentialUsageTarget):
+        try:
+            return fetch_account_usage(
+                CODEX_PROVIDER, base_url=target.base_url, api_key=target.api_key, read_only=True,
+                identity_id=target.identity_id)
+        except Exception:  # health: allow BLE001 -- /usage is fail-open per credential
+            # Never log the exception: provider/client failures may echo Authorization headers.
+            logger.debug("Codex quota probe failed for %s", target.display)
+            return None
+
+    # Context vars carry the selected profile home and secret scope. A bare executor would silently
+    # fall back to the launch profile, disclosing/caching another profile's quotas in multiplex mode.
+    with ThreadPoolExecutor(max_workers=min(4, len(targets)), thread_name_prefix="codex-usage") as pool:
+        futures = [pool.submit(copy_context().run, _fetch, target) for target in targets]
+        snapshots = [future.result() for future in futures]
+
+    lines: List[str] = []
+    for target, snapshot in zip(targets, snapshots):
+        if snapshot is None:
+            continue
+        block = render_account_usage_lines(
+            replace(snapshot, title=f"OpenAI Codex limits · {target.display}"), markdown=markdown)
+        if block:
+            if lines:
+                lines.append("")
+            lines.extend(block)
+    return lines
 
 
 def _session_store(runner: Any):

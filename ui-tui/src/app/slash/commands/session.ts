@@ -720,6 +720,12 @@ export const sessionCommands: SlashCommand[] = [
           })
         }
 
+        const accountLines = r?.account_lines ?? []
+
+        if (accountLines.length) {
+          ctx.transcript.panel('Codex account limits', [{ text: accountLines.join('\n') }])
+        }
+
         // Nous balance block is agent-independent (a portal fetch), so it shows
         // even with zero API calls or on a resumed session. Prefer the shared
         // dollar usage model (two-bar view, dollars-only); fall back to the

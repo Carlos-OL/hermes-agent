@@ -135,7 +135,7 @@ def _format_live_usage_output(sid: str, session: dict, arg: str) -> str:
     agent = session.get("agent")
     usage = _session_usage_snapshot(session)
     if agent is None and not usage:
-        return _NO_AGENT_USAGE
+        usage = {"calls": 0, "input": 0, "output": 0, "total": 0}
     if session.get("_metadata_message_count") is not None:
         message_count = int(session.get("_metadata_message_count") or 0)
     else:
@@ -156,7 +156,23 @@ def _format_live_usage_output(sid: str, session: dict, arg: str) -> str:
     rows += [("Messages:", f"{message_count:,}"), ("Compressions:", n("compressions"))]
     model = usage.get("model") or _metadata_mirror(session).get("model") or getattr(agent, "model", "") or "(unknown)"
     lines = ["Session Token Usage", "────────────────────────────────────────", f"Model: {model}"]
-    return "\n".join(lines + [f"{label:<30}{value}" for label, value in rows])
+    lines.extend(f"{label:<30}{value}" for label, value in rows)
+
+    # Match messaging and Desktop: /usage is a combined session + subscription view. Probe every
+    # Codex pool row without selecting/rotating it, then show Nous credits regardless of the active
+    # inference provider. Both blocks fail open so session counters remain useful offline.
+    account_lines: list[str] = []
+    credits_lines: list[str] = []
+    with _session_profile_runtime_scope(session):
+        with contextlib.suppress(Exception):
+            account_lines = _account_usage_lines(session)
+        with contextlib.suppress(Exception):
+            from agent.account_usage import nous_credits_lines
+            credits_lines = nous_credits_lines()
+    for block in (account_lines, credits_lines):
+        if block:
+            lines.extend(["", *block])
+    return "\n".join(lines)
 
 
 def _live_session_messages(session: dict) -> Optional[list]:

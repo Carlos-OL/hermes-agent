@@ -594,13 +594,16 @@ export function renderRpcResult(response: unknown, name: string): string {
     ]
 
     // Provider account limits (e.g. Codex quota windows) first, then Nous credits — same order as CLI /usage.
+    // Preserve blank separators within and between blocks so pooled account quotas do not run together.
     for (const extra of [r.account_lines, r.credits_lines]) {
       if (Array.isArray(extra)) {
-        for (const line of extra) {
-          if (typeof line === 'string' && line.trim()) {
-            lines.push(line.trim())
-          }
+        const block = extra.filter((line): line is string => typeof line === 'string').map(line => line.trim())
+
+        if (block.length) {
+          lines.push('')
         }
+
+        lines.push(...block)
       }
     }
 

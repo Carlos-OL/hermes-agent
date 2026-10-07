@@ -485,12 +485,29 @@ describe('renderRpcResult', () => {
       )
 
       expect(body.split('\n').slice(1)).toEqual([
+        '',
         '📈 Account limits',
         'Provider: openai-codex (Plus)',
         'Weekly: 12% used',
+        '',
         'Nous credits: 8,420 remaining',
         'Resets: 2026-08-01'
       ])
+    })
+
+    it('preserves blank separators between pooled Codex accounts', () => {
+      const body = renderRpcResult(
+        {
+          calls: 0,
+          input: 0,
+          output: 0,
+          total: 0,
+          account_lines: ['Personal', 'Weekly: 12% used', '', 'Work', 'Weekly: 34% used']
+        },
+        'usage'
+      )
+
+      expect(body).toContain('Personal\nWeekly: 12% used\n\nWork\nWeekly: 34% used')
     })
   })
 

@@ -84,6 +84,35 @@ describe('/usage slash command', () => {
     expect(printed(withBalance.sys)).not.toContain(t('slashCmd.session.usage.noCalls'))
   })
 
+  it('renders every Codex account block while retaining session token usage', async () => {
+    const { panel, run } = buildCtx({
+      'session.usage': baseUsage({
+        calls: 2,
+        input: 1234,
+        output: 56,
+        total: 1290,
+        account_lines: [
+          '📈 OpenAI Codex limits · Personal · abc123',
+          'Weekly: 12% used',
+          '',
+          '📈 OpenAI Codex limits · Work · def456',
+          'Weekly: 34% used'
+        ]
+      })
+    })
+
+    await run('')
+
+    expect(panel).toHaveBeenCalledWith(
+      'Codex account limits',
+      [{ text: expect.stringContaining('Personal · abc123') }]
+    )
+    expect(panel).toHaveBeenCalledWith(
+      t('slashCmd.session.usage.usageTitle'),
+      expect.arrayContaining([{ rows: expect.arrayContaining([[t('slashCmd.session.usage.rowInputTokens'), '1,234']]) }])
+    )
+  })
+
   it('renders the dollar two-bar model (no "credits" wording) when available', async () => {
     const { panel, run } = buildCtx({
       'session.usage': baseUsage({

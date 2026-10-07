@@ -245,13 +245,15 @@ class TestUsageAccountSection:
         agent.get_rate_limit_state.return_value.has_data = False
         runner = _make_runner(SK, cached_agent=agent)
         targets = [
-            SimpleNamespace(display="Personal · aaa111", api_key="token-a", base_url="https://chatgpt.com/backend-api/codex"),
-            SimpleNamespace(display="Work · bbb222", api_key="token-b", base_url="https://chatgpt.com/backend-api/codex"),
+            SimpleNamespace(display="Personal · aaa111", api_key="token-a",
+                            base_url="https://chatgpt.com/backend-api/codex", identity_id="codex:personal"),
+            SimpleNamespace(display="Work · bbb222", api_key="token-b",
+                            base_url="https://chatgpt.com/backend-api/codex", identity_id="codex:work"),
         ]
         calls = []
 
-        def _fetch(provider, *, base_url=None, api_key=None, read_only=False, **_kwargs):
-            calls.append((provider, api_key, read_only))
+        def _fetch(provider, *, base_url=None, api_key=None, read_only=False, identity_id=None, **_kwargs):
+            calls.append((provider, api_key, read_only, identity_id))
             if provider != "openai-codex":
                 return None
             used = 10 if api_key == "token-a" else 70
@@ -270,8 +272,8 @@ class TestUsageAccountSection:
         assert "Weekly: 90% remaining" in result
         assert "Weekly: 30% remaining" in result
         assert "Nous credits block" in result
-        assert ("openai-codex", "token-a", True) in calls
-        assert ("openai-codex", "token-b", True) in calls
+        assert ("openai-codex", "token-a", True, "codex:personal") in calls
+        assert ("openai-codex", "token-b", True, "codex:work") in calls
 
 
 class TestUsageReset:

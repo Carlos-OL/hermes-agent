@@ -469,7 +469,7 @@ def test_usage_forced_refresh_keeps_the_refreshed_pool_key_on_the_gateway(monkey
 
     monkeypatch.setattr("agent.credential_pool.load_pool", lambda provider: Pool())
 
-    token, base_url, _acct = account_usage._resolve_codex_usage_credentials(
+    token, base_url, _acct, _label = account_usage._resolve_codex_usage_credentials(
         GW, "stale-gw-key", force_refresh=True)
 
     assert (token, base_url) == ("fresh-gw-key", GW)

@@ -121,7 +121,7 @@ def test_read_only_401_raises_and_never_retries_with_rotation(monkeypatch, tmp_p
     with _LoopbackUsageServer() as server:
         server.responses[token] = (401, {"error": "unauthorized"})
         monkeypatch.setattr(account_usage, "_resolve_codex_usage_credentials",
-                            lambda base_url, api_key, **kw: (api_key, base_url, None))
+                            lambda base_url, api_key, **kw: (api_key, base_url, None, None))
         monkeypatch.setattr(auth_mod, "resolve_codex_runtime_credentials", _forbidden_refresh)
         # The fetcher under test imports _resolve_codex_usage_credentials at module level, so the
         # 401 path must NOT re-enter it with force_refresh: patch it to blow up on force_refresh.
