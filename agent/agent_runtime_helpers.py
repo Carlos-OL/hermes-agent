@@ -29,6 +29,7 @@ from agent.credential_pool import (
     STATUS_EXHAUSTED, _parse_absolute_timestamp, credential_pool_entry_serves_endpoint,
     credential_pool_matches_provider, resolve_runtime_pool_key,
 )
+from agent.credential_pool_admin import agent_pool_pin, preferred_pool_entry, return_to_pinned_entry
 from agent.error_classifier import FailoverReason
 from agent.retry_utils import parse_retry_after_seconds, reset_delay_from_message
 from agent.message_metadata import MERGED_TURN_PREFIX
@@ -1339,11 +1340,11 @@ def _rebind_primary_credential_pool(agent, primary_provider, primary_model, matc
             )
     agent._credential_pool_entry_id = None
     pool = getattr(agent, "_credential_pool", None)
-    entry = pool.select(model=primary_model or None) if pool is not None and pool.has_available(model=primary_model or None) else None
+    with preferred_pool_entry(*agent_pool_pin(agent)):  # a /credentials pin serves first when available
+        entry = pool.select(model=primary_model or None) if pool is not None and pool.has_available(model=primary_model or None) else None
     if entry is None or not (getattr(entry, "runtime_api_key", None) or getattr(entry, "access_token", "")):
         return
     if matches_primary(entry):
-        # _swap_credential rebuilds the client and reapplies base-url-scoped headers.
         # ``_swap_credential`` rebuilds the OpenAI/Anthropic client, reapplies base-url-scoped headers, and
         # carries the accumulated base_url / OAuth-detection fixes (#33163).
         agent._swap_credential(entry)
@@ -1361,12 +1362,11 @@ def _rebind_primary_credential_pool(agent, primary_provider, primary_model, matc
 
 
 def _revert_credential_rotation(agent) -> None:
-    """Move a live session back onto the credential a quota bench rotated it off, once the bench
-    lifts. New sessions already do this through ``select()``; without it a long-lived (gateway)
-    session keeps billing the fallback for its whole life (#114501). Credential-only: the
-    model/base_url/compressor restore stays gated on ``_fallback_activated``."""
+    """Move a live session back onto the credential a quota bench rotated it off, once the bench lifts. New sessions
+    do this via ``select()``; without it a long-lived (gateway) session bills the fallback for life (#114501). A
+    /credentials pin governs first (``return_to_pinned_entry``); the revert runs only while it cools down."""
     revert_id = getattr(agent, "_credential_pool_revert_id", None)
-    if not revert_id:
+    if return_to_pinned_entry(agent) or not revert_id:
         return
     pool = getattr(agent, "_credential_pool", None)
     if pool is None or getattr(agent, "_credential_pool_entry_id", None) == revert_id:

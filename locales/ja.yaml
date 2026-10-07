@@ -169,6 +169,26 @@ gateway:
     denied_plural: "❌ コマンドを拒否しました ({count} 件)。"
     denied_reason_singular: "❌ コマンドを拒否しました。 理由をエージェントに伝達しました: \"{reason}\""
     denied_reason_plural: "❌ コマンドを拒否しました ({count} 件)。 理由をエージェントに伝達しました: \"{reason}\""
+  credentials:
+    picker_title: "🔑 **OpenAI Codex 認証情報**\n\nこのセッション: {current}\n\n認証情報を選択:"
+    status_header: "🔑 **OpenAI Codex 認証情報**\n\nこのセッション: {current}"
+    automatic_line: "• 自動（プール戦略）{marker}"
+    entry_line: "{index}. {credential}{marker}"
+    usage: "_使い方:_ `/credentials <id|number|auto>`"
+    choice_automatic: "自動（{strategy}）"
+    current_automatic: "自動（{strategy}）"
+    unnamed: "認証情報"
+    none: "🔑 OpenAI Codex のプール認証情報が設定されていません。ホストで `hermes auth` を実行して追加してください。"
+    load_failed: "⚠️ OpenAI Codex の認証情報プールを読み込めませんでした。ホストで `hermes auth list` を実行して確認してください。"
+    unknown: "⚠️ その選択に一致する OpenAI Codex 認証情報はありません。/credentials を送信して一覧を確認してください。"
+    pinned: "🔑 ✓ このセッションは **{credential}** を使用します\n_（次のメッセージから適用）_"
+    automatic: "🔑 ✓ このセッションは認証情報の**自動**選択に戻りました（{strategy}）\n_（次のメッセージから適用）_"
+    usage_line: "セッションの認証情報: {credential}（{mode}）"
+    mode_pinned: "固定"
+    mode_automatic: "自動"
+    mode_pin_waiting: "固定した認証情報のクールダウン中は自動"
+    mode_pinned_cooling: "固定（クールダウン中）。利用可能になるまで自動選択が使われます"
+    usage_pin_removed: "セッションの認証情報: 自動（固定していた認証情報は削除されました）"
   fast:
     not_supported: "⚡ /fast は Priority Processing をサポートする OpenAI モデルでのみ利用できます。"
     status: "⚡ Priority Processing\n\n現在のモード: `{mode}`\n\n_使い方:_ `/fast <normal|fast|status>`"
@@ -1597,6 +1617,8 @@ slash:
     description: "危険なコマンドの永続的な承認モードを表示または設定"
   reasoning:
     description: "推論の強度と表示を管理"
+  credentials:
+    description: "このセッションで使う OpenAI Codex プールの認証情報を選択（または自動）"
   fast:
     description: "高速モード — OpenAI Priority Processing / Anthropic Fast Mode（normal/fast/auto/cold）"
   skin:

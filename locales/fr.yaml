@@ -195,6 +195,26 @@ gateway:
     denied_plural: "❌ Commandes refusées ({count} commandes)."
     denied_reason_singular: "❌ Commande refusée. Raison transmise à l'agent: \"{reason}\""
     denied_reason_plural: "❌ Commandes refusées ({count} commandes). Raison transmise à l'agent: \"{reason}\""
+  credentials:
+    picker_title: "🔑 **Identifiant OpenAI Codex**\n\nCette session : {current}\n\nChoisissez un identifiant :"
+    status_header: "🔑 **Identifiants OpenAI Codex**\n\nCette session : {current}"
+    automatic_line: "• Automatique (stratégie du pool){marker}"
+    entry_line: "{index}. {credential}{marker}"
+    usage: "_Utilisation :_ `/credentials <id|number|auto>`"
+    choice_automatic: "Automatique ({strategy})"
+    current_automatic: "Automatique ({strategy})"
+    unnamed: "identifiant"
+    none: "🔑 Aucun identifiant OpenAI Codex n'est configuré dans le pool. Lancez `hermes auth` sur l'hôte pour en ajouter un."
+    load_failed: "⚠️ Impossible de lire le pool d'identifiants OpenAI Codex. Lancez `hermes auth list` sur l'hôte pour le vérifier."
+    unknown: "⚠️ Aucun identifiant OpenAI Codex ne correspond à cette sélection. Envoyez /credentials pour voir la liste."
+    pinned: "🔑 ✓ Cette session utilise désormais **{credential}**\n_(prend effet au prochain message)_"
+    automatic: "🔑 ✓ Cette session repasse en sélection **automatique** des identifiants ({strategy})\n_(prend effet au prochain message)_"
+    usage_line: "Identifiant de la session : {credential} ({mode})"
+    mode_pinned: "épinglé"
+    mode_automatic: "automatique"
+    mode_pin_waiting: "automatique pendant le refroidissement de l'identifiant épinglé"
+    mode_pinned_cooling: "épinglé, en refroidissement ; la sélection automatique prend le relais jusqu'à sa disponibilité"
+    usage_pin_removed: "Identifiant de la session : automatique (l'identifiant épinglé a été supprimé)"
   fast:
     not_supported: "⚡ /fast n'est disponible que pour les modèles OpenAI qui prennent en charge Priority Processing."
     status: "⚡ Priority Processing\n\nMode actuel : `{mode}`\n\n_Usage :_ `/fast <normal|fast|status>`"
@@ -1849,6 +1869,8 @@ slash:
     description: "Afficher ou définir le mode d'approbation persistant des commandes dangereuses"
   reasoning:
     description: "Gérer l'effort de raisonnement et son affichage"
+  credentials:
+    description: "Choisir l'identifiant du pool OpenAI Codex de cette session, ou Automatique"
   fast:
     description: "Mode rapide — OpenAI Priority Processing / Anthropic Fast Mode (normal/fast/auto/cold/ultrafast)"
   skin:

@@ -179,6 +179,7 @@ _MEDIA_KIND_KEYS = {
 
 from gateway.platforms.event import MessageEvent, MessageType, ProcessingOutcome
 from plugins.platforms.telegram.telegram_entities import expand_link_entities
+from plugins.platforms.telegram.telegram_choice_picker import TelegramChoicePickerMixin
 from plugins.platforms.telegram.telegram_held_inbound import TelegramHeldInboundMixin
 from plugins.platforms.telegram.telegram_ids import normalize_telegram_chat_id
 from plugins.platforms.telegram.telegram_network import (
@@ -511,7 +512,7 @@ class _PollingStallError(RuntimeError):
     """
 
 
-class TelegramAdapter(TelegramHeldInboundMixin, BasePlatformAdapter):
+class TelegramAdapter(TelegramHeldInboundMixin, TelegramChoicePickerMixin, BasePlatformAdapter):
     """Telegram bot adapter: users/groups, MarkdownV2 replies, forum topics, media."""
 
     # Bound for the per-(chat_id, status_key) status-message cache; FIFO half-trim on overflow.
@@ -699,7 +700,7 @@ class TelegramAdapter(TelegramHeldInboundMixin, BasePlatformAdapter):
         # getFile cap: 20MB on the public Bot API, 2GB on a local telegram-bot-api (base_url).
         self._max_doc_bytes: int = 2 * 1024 * 1024 * 1024 if extra.get("base_url") else 20 * 1024 * 1024
         self._model_picker_state: Dict[str, dict] = {}  # per-chat interactive picker state
-        self._choice_picker_state: Dict[str, dict] = {}
+        self._choice_picker_state: Dict[str, dict] = {}  # opaque picker id → state (telegram_choice_picker)
         self._approval_state: Dict[int, str] = {}  # message_id → session_key
         self._slash_confirm_state: Dict[str, str] = {}  # confirm_id → session_key
         self._clarify_state: Dict[str, str] = {}  # clarify_id → session_key
@@ -4314,30 +4315,6 @@ class TelegramAdapter(TelegramHeldInboundMixin, BasePlatformAdapter):
 
     _PROVIDER_PAGE_SIZE = 10
 
-    async def send_choice_picker(
-        self, chat_id: str, title: str, choices: list, session_key: str, on_choice_selected,
-        metadata: Optional[Dict[str, Any]] = None) -> SendResult:
-        """Flat inline-keyboard picker (one tap → one value) for /reasoning, /fast, etc. Each choice dict:
-        ``{"value": str, "label": str, "is_current": bool}``."""
-        def build():
-            buttons = []
-            for i, choice in enumerate(choices):
-                label = str(choice.get("label") or choice.get("value") or "")
-                if choice.get("is_current"):
-                    label = f"✓ {label}"
-                buttons.append(InlineKeyboardButton(label, callback_data=f"cp:{i}"))
-            if not buttons:
-                return SendResult(success=False, error="No choices")
-            keyboard = InlineKeyboardMarkup(self._rows_of_two(buttons))
-
-            def _remember(msg):
-                self._choice_picker_state[str(chat_id)] = {
-                    "msg_id": msg.message_id, "choices": choices, "session_key": session_key, "on_choice_selected": on_choice_selected}
-            return self.format_message(title), keyboard, _remember
-        return await self._send_prompt(
-            "send_choice_picker", chat_id, metadata, build, thread_id=metadata.get("thread_id") if metadata else None,
-            reply_to_mode=self._reply_to_mode)
-
     async def _edit_result_text(self, query, result_text: str) -> None:
         """Replace a picker message with ``result_text`` (MarkdownV2, then plain, then give up), keyboard removed."""
         try:
@@ -4345,30 +4322,6 @@ class TelegramAdapter(TelegramHeldInboundMixin, BasePlatformAdapter):
         except Exception:
             with contextlib.suppress(Exception):
                 await query.edit_message_text(text=result_text, parse_mode=None, reply_markup=None)
-
-    async def _handle_choice_picker_callback(self, query, data: str, chat_id: str) -> None:
-        """Handle choice picker button taps (cp:<index>)."""
-        state = self._choice_picker_state.get(chat_id)
-        if not state:
-            await query.answer(text=_toast("platform.telegram.picker.expired_rerun"))
-            return
-        try:
-            choice = state["choices"][int(data[3:])]
-        except (ValueError, IndexError):
-            await query.answer(text=_toast("platform.telegram.picker.invalid_selection"))
-            return
-        callback = state.get("on_choice_selected")
-        if not callback:
-            await query.answer(text=_toast("platform.telegram.picker.expired"))
-            return
-        try:
-            result_text = await callback(chat_id, str(choice.get("value") or ""))
-        except Exception as exc:
-            logger.error("Choice picker selection failed: %s", exc)
-            result_text = t("platform.telegram.picker.apply_error", error=str(exc))
-        await self._edit_result_text(query, result_text)
-        await query.answer()
-        self._choice_picker_state.pop(chat_id, None)
 
     _MODEL_PAGE_SIZE = 8
 

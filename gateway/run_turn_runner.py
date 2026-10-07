@@ -26,6 +26,7 @@ from gateway.config import Platform
 from gateway.media_repair import repair_explicit_computer_use_media_paths
 from gateway.platforms.base import BasePlatformAdapter
 from gateway.platforms.base_exec_approval import ea_default_reason_text
+from gateway.slash_commands_credentials import agent_credential_pin
 from gateway.turn_context import TurnContext
 from hermes_cli.config import cfg_get
 from utils import is_truthy_value
@@ -1137,8 +1138,7 @@ class TurnRunner:
         )
 
     def _resolve_turn_agent(self, turn_route, platform_key, combined_ephemeral, max_iterations, reasoning_config, pr):
-        """Reuse this session's cached AIAgent (frozen system prompt + tool schemas → prompt cache
-        hits) or build a fresh one. Returns (agent, reused_cached_agent)."""
+        """Reuse this session's cached AIAgent (frozen prompt + schemas → cache hits) or build one; (agent, reused)."""
         ctx = self._ctx
         runner = self._runner
         skip_context_files = self._skip_context_files(platform_key)
@@ -1155,9 +1155,8 @@ class TurnRunner:
         msg_count = self._current_message_count()
         found = self._lookup_cached_agent(sig, cache_lock, cache, max_iterations, peek_sid, dead, msg_count)
         agent = found.agent
-        # Lock released — refresh the reused agent's fallback chain from disk OUTSIDE the cache lock
-        # (disk I/O under the lock stalls the idle-sweep watcher and Discord heartbeats). A chain
-        # configured after caching must reach the next turn; per-session serialization keeps it safe.
+        # Lock released: refresh the reused agent's fallback chain from disk OUTSIDE the cache lock (I/O under it stalls
+        # the idle sweep and heartbeats) so a chain configured after caching reaches the next turn (per-session serial).
         if found.reused and agent is not None:
             self._runner._apply_fallback_chain_to_agent(agent, runner._refresh_fallback_model())
         if found.evicted is not None:
@@ -1272,6 +1271,7 @@ class TurnRunner:
         agent.notice_clear_callback = None  # sends can't be retracted
         agent.event_callback = ctx._event_callback_sync
         agent.reasoning_config, agent.service_tier = reasoning_config, runner._service_tier
+        agent._credential_pool_pin = agent_credential_pin(runner, ctx.session_key)  # turn start returns to the pin
         self._merge_turn_request_overrides(agent, turn_route)
         # Must-deliver notes for THIS turn ride the current user message (api_content sidecar), never
         # the system prompt. Assigned unconditionally so a reused agent never replays a stale note.

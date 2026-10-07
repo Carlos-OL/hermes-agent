@@ -169,6 +169,26 @@ gateway:
     denied_plural: "❌ 命令已拒绝（{count} 条命令）。"
     denied_reason_singular: "❌ 命令已拒绝。 已将原因转达给代理: \"{reason}\""
     denied_reason_plural: "❌ 命令已拒绝（{count} 条命令）。 已将原因转达给代理: \"{reason}\""
+  credentials:
+    picker_title: "🔑 **OpenAI Codex 凭据**\n\n当前会话：{current}\n\n选择凭据："
+    status_header: "🔑 **OpenAI Codex 凭据**\n\n当前会话：{current}"
+    automatic_line: "• 自动（池策略）{marker}"
+    entry_line: "{index}. {credential}{marker}"
+    usage: "_用法：_ `/credentials <id|number|auto>`"
+    choice_automatic: "自动（{strategy}）"
+    current_automatic: "自动（{strategy}）"
+    unnamed: "凭据"
+    none: "🔑 尚未配置 OpenAI Codex 池凭据。请在主机上运行 `hermes auth` 添加。"
+    load_failed: "⚠️ 无法读取 OpenAI Codex 凭据池。请在主机上运行 `hermes auth list` 检查。"
+    unknown: "⚠️ 没有与该选择匹配的 OpenAI Codex 凭据。发送 /credentials 查看列表。"
+    pinned: "🔑 ✓ 当前会话现在使用 **{credential}**\n_（从下一条消息开始生效）_"
+    automatic: "🔑 ✓ 当前会话已恢复为**自动**选择凭据（{strategy}）\n_（从下一条消息开始生效）_"
+    usage_line: "会话凭据：{credential}（{mode}）"
+    mode_pinned: "已固定"
+    mode_automatic: "自动"
+    mode_pin_waiting: "固定凭据冷却期间自动选择"
+    mode_pinned_cooling: "已固定，冷却中；恢复可用前由自动选择接管"
+    usage_pin_removed: "会话凭据：自动（固定的凭据已被删除）"
   fast:
     not_supported: "⚡ /fast 仅适用于支持优先处理（Priority Processing）的 OpenAI 模型。"
     status: "⚡ 优先处理\n\n当前模式：`{mode}`\n\n_用法：_ `/fast <normal|fast|status>`"
@@ -1597,6 +1617,8 @@ slash:
     description: "显示或设置持久的危险命令审批模式"
   reasoning:
     description: "管理推理力度与显示"
+  credentials:
+    description: "为当前会话选择 OpenAI Codex 池凭据，或自动选择"
   fast:
     description: "快速模式 — OpenAI Priority Processing / Anthropic Fast Mode（normal/fast/auto/cold）"
   skin:

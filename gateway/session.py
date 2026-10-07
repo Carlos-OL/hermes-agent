@@ -16,6 +16,7 @@ from .config import Platform, GatewayConfig, HomeChannel
 from .whatsapp_identity import canonical_whatsapp_identifier
 from gateway.session_identity import transport_profile_of
 from gateway.session_persistence import SessionPersistenceMixin, _DB_UNPINNED
+from gateway.session_credential_pin import SessionCredentialPinMixin, sanitize_credential_pin
 from gateway.session_prompt_pin import SessionPromptPinMixin, sanitize_prompt_pin
 from gateway.session_recovery import SessionRecoveryMixin
 from gateway.session_lifecycle import SessionLifecycleMixin, _iso, _new_session_id, _now, _parse_iso
@@ -537,6 +538,8 @@ class SessionEntry:
     # Exact session-context/channel inputs from the last human turn. Append-only dataclass field so
     # older positional construction of transport_profile keeps its meaning.
     prompt_pin: Optional[Dict[str, Any]] = None
+    # /credentials pool entry id (never a token; see session_credential_pin). Append-only like above.
+    credential_pin: Optional[str] = None
 
     # Fields (de)serialized verbatim, in wire order (``from_dict`` reads them with
     # ``data.get(name, <dataclass default>)``), split around the three ISO-datetime/token keys.
@@ -572,6 +575,8 @@ class SessionEntry:
                 result["prompt_pin"] = pin
         if self.transport_profile:
             result["transport_profile"] = self.transport_profile
+        if pin := sanitize_credential_pin(self.credential_pin):
+            result["credential_pin"] = pin
         if self.origin:
             result["origin"] = self.origin.to_dict()
         return result
@@ -613,6 +618,7 @@ class SessionEntry:
             active_turn_token=token, active_turn_started_at=started_at,
             model_override=sanitize_model_override(data.get("model_override")),
             prompt_pin=sanitize_prompt_pin(data.get("prompt_pin")),
+            credential_pin=sanitize_credential_pin(data.get("credential_pin")),
             transport_profile=transport_profile if isinstance(transport_profile, str) and transport_profile else None,
             **plain,
         )
@@ -780,7 +786,7 @@ class AsyncSessionStore:
 
 class SessionStore(
     SessionPersistenceMixin, SessionRecoveryMixin, SessionLifecycleMixin, SessionTranscriptMixin,
-    SessionPromptPinMixin,
+    SessionPromptPinMixin, SessionCredentialPinMixin,
 ):
     """Session routing index + transcripts: SQLite (SessionDB), legacy JSONL fallback."""
 
@@ -1242,8 +1248,8 @@ class SessionStore(
         ``expected_session_id`` makes the repoint a compare-and-swap: ``None`` is returned when
         the key no longer points at that session, so a caller that resolved against a snapshot
         across an await (async-delegation re-pin) cannot overwrite a concurrent /new or /resume.
-        Prompt pins follow non-boundary repoints by default; /resume opts out explicitly because it
-        starts a different conversation on the same routing key.
+        Prompt pins (and the /credentials pin) follow non-boundary repoints by default; /resume
+        opts out explicitly because it starts a different conversation on the same routing key.
         """
         with self._lock:
             old_entry = self._entry_locked(session_key)
@@ -1264,6 +1270,8 @@ class SessionStore(
                     dict(old_entry.prompt_pin)
                     if preserve_prompt_pin and old_entry.prompt_pin is not None else None
                 ),
+                # A /credentials pin follows the same non-boundary repoints; /resume drops it.
+                credential_pin=old_entry.credential_pin if preserve_prompt_pin else None,
             )
 
         if self._db_for_key(session_key) and old_entry.session_id:

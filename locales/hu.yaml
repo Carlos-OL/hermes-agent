@@ -172,6 +172,26 @@ gateway:
     denied_plural: "❌ Parancsok elutasítva ({count} parancs)."
     denied_reason_singular: "❌ Parancs elutasítva. Indok továbbítva az ügynöknek: \"{reason}\""
     denied_reason_plural: "❌ Parancsok elutasítva ({count} parancs). Indok továbbítva az ügynöknek: \"{reason}\""
+  credentials:
+    picker_title: "🔑 **OpenAI Codex hitelesítő adat**\n\nEz a munkamenet: {current}\n\nVálassz hitelesítő adatot:"
+    status_header: "🔑 **OpenAI Codex hitelesítő adatok**\n\nEz a munkamenet: {current}"
+    automatic_line: "• Automatikus (pool-stratégia){marker}"
+    entry_line: "{index}. {credential}{marker}"
+    usage: "_Használat:_ `/credentials <id|number|auto>`"
+    choice_automatic: "Automatikus ({strategy})"
+    current_automatic: "Automatikus ({strategy})"
+    unnamed: "hitelesítő adat"
+    none: "🔑 Nincs beállított OpenAI Codex pool hitelesítő adat. Futtasd a `hermes auth` parancsot a gazdagépen a hozzáadáshoz."
+    load_failed: "⚠️ Nem sikerült beolvasni az OpenAI Codex hitelesítőadat-poolt. Ellenőrizd a `hermes auth list` paranccsal a gazdagépen."
+    unknown: "⚠️ Egyetlen OpenAI Codex hitelesítő adat sem felel meg ennek a választásnak. Küldd el a /credentials parancsot a listához."
+    pinned: "🔑 ✓ Ez a munkamenet mostantól a(z) **{credential}** adatot használja\n_(a következő üzenettől érvényes)_"
+    automatic: "🔑 ✓ Ez a munkamenet visszatért az **automatikus** hitelesítőadat-választáshoz ({strategy})\n_(a következő üzenettől érvényes)_"
+    usage_line: "Munkamenet hitelesítő adata: {credential} ({mode})"
+    mode_pinned: "rögzítve"
+    mode_automatic: "automatikus"
+    mode_pin_waiting: "automatikus, amíg a rögzített hitelesítő adat lehűl"
+    mode_pinned_cooling: "rögzítve, lehűlés alatt; amíg elérhetővé nem válik, az automatikus választás szolgál ki"
+    usage_pin_removed: "Munkamenet hitelesítő adata: automatikus (a rögzített hitelesítő adatot eltávolították)"
   fast:
     not_supported: "⚡ A /fast csak olyan OpenAI modelleknél érhető el, amelyek támogatják a Priority Processinget."
     status: "⚡ Priority Processing\n\nJelenlegi mód: `{mode}`\n\n_Használat:_ `/fast <normal|fast|status>`"
@@ -1614,6 +1634,8 @@ slash:
     description: "A veszélyes parancsok tartós jóváhagyási módjának megjelenítése vagy beállítása"
   reasoning:
     description: "Gondolkodási erőfeszítés és megjelenítés kezelése"
+  credentials:
+    description: "A munkamenet OpenAI Codex pool hitelesítő adatának kiválasztása, vagy Automatikus"
   fast:
     description: "Gyors mód — OpenAI Priority Processing / Anthropic Fast Mode (normal/fast/auto/cold/ultrafast)"
   skin:

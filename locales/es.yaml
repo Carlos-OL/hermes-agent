@@ -169,6 +169,26 @@ gateway:
     denied_plural: "❌ Comandos denegados ({count} comandos)."
     denied_reason_singular: "❌ Comando denegado. Motivo transmitido al agente: \"{reason}\""
     denied_reason_plural: "❌ Comandos denegados ({count} comandos). Motivo transmitido al agente: \"{reason}\""
+  credentials:
+    picker_title: "🔑 **Credencial de OpenAI Codex**\n\nEsta sesión: {current}\n\nElige una credencial:"
+    status_header: "🔑 **Credenciales de OpenAI Codex**\n\nEsta sesión: {current}"
+    automatic_line: "• Automática (estrategia del pool){marker}"
+    entry_line: "{index}. {credential}{marker}"
+    usage: "_Uso:_ `/credentials <id|number|auto>`"
+    choice_automatic: "Automática ({strategy})"
+    current_automatic: "Automática ({strategy})"
+    unnamed: "credencial"
+    none: "🔑 No hay credenciales de OpenAI Codex configuradas en el pool. Ejecuta `hermes auth` en el host para añadir una."
+    load_failed: "⚠️ No se pudo leer el pool de credenciales de OpenAI Codex. Ejecuta `hermes auth list` en el host para revisarlo."
+    unknown: "⚠️ Ninguna credencial de OpenAI Codex coincide con esa selección. Envía /credentials para ver la lista."
+    pinned: "🔑 ✓ Esta sesión ahora usa **{credential}**\n_(se aplica a partir del próximo mensaje)_"
+    automatic: "🔑 ✓ Esta sesión vuelve a la selección **automática** de credenciales ({strategy})\n_(se aplica a partir del próximo mensaje)_"
+    usage_line: "Credencial de la sesión: {credential} ({mode})"
+    mode_pinned: "fijada"
+    mode_automatic: "automática"
+    mode_pin_waiting: "automática mientras la credencial fijada se enfría"
+    mode_pinned_cooling: "fijada, en enfriamiento; la selección automática responde hasta que esté disponible"
+    usage_pin_removed: "Credencial de la sesión: automática (la credencial fijada se eliminó)"
   fast:
     not_supported: "⚡ /fast solo está disponible para modelos de OpenAI que admiten Priority Processing."
     status: "⚡ Priority Processing\n\nModo actual: `{mode}`\n\n_Uso:_ `/fast <normal|fast|status>`"
@@ -1597,6 +1617,8 @@ slash:
     description: "Mostrar o establecer el modo persistente de aprobación de comandos peligrosos"
   reasoning:
     description: "Gestionar el esfuerzo de razonamiento y su visualización"
+  credentials:
+    description: "Elige la credencial del pool de OpenAI Codex para esta sesión, o Automática"
   fast:
     description: "Modo rápido: OpenAI Priority Processing / Anthropic Fast Mode (normal/fast/auto/cold/ultrafast)"
   skin:

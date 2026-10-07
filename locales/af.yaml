@@ -169,6 +169,26 @@ gateway:
     denied_plural: "❌ Opdragte geweier ({count} opdragte)."
     denied_reason_singular: "❌ Opdrag geweier. Rede aan die agent oorgedra: \"{reason}\""
     denied_reason_plural: "❌ Opdragte geweier ({count} opdragte). Rede aan die agent oorgedra: \"{reason}\""
+  credentials:
+    picker_title: "🔑 **OpenAI Codex-geloofsbrief**\n\nHierdie sessie: {current}\n\nKies 'n geloofsbrief:"
+    status_header: "🔑 **OpenAI Codex-geloofsbriewe**\n\nHierdie sessie: {current}"
+    automatic_line: "• Outomaties (poelstrategie){marker}"
+    entry_line: "{index}. {credential}{marker}"
+    usage: "_Gebruik:_ `/credentials <id|number|auto>`"
+    choice_automatic: "Outomaties ({strategy})"
+    current_automatic: "Outomaties ({strategy})"
+    unnamed: "geloofsbrief"
+    none: "🔑 Geen OpenAI Codex-poelgeloofsbriewe is opgestel nie. Voer `hermes auth` op die gasheer uit om een by te voeg."
+    load_failed: "⚠️ Kon nie die OpenAI Codex-geloofsbriefpoel lees nie. Voer `hermes auth list` op die gasheer uit om dit na te gaan."
+    unknown: "⚠️ Geen OpenAI Codex-geloofsbrief pas by daardie keuse nie. Stuur /credentials om die lys te sien."
+    pinned: "🔑 ✓ Hierdie sessie gebruik nou **{credential}**\n_(geld vanaf die volgende boodskap)_"
+    automatic: "🔑 ✓ Hierdie sessie is terug op **outomatiese** geloofsbriefkeuse ({strategy})\n_(geld vanaf die volgende boodskap)_"
+    usage_line: "Sessiegeloofsbrief: {credential} ({mode})"
+    mode_pinned: "vasgepen"
+    mode_automatic: "outomaties"
+    mode_pin_waiting: "outomaties terwyl die vasgepende geloofsbrief afkoel"
+    mode_pinned_cooling: "vasgepen, koel af; outomatiese keuse bedien totdat dit beskikbaar is"
+    usage_pin_removed: "Sessiegeloofsbrief: outomaties (die vasgepende geloofsbrief is verwyder)"
   fast:
     not_supported: "⚡ /fast is slegs beskikbaar vir OpenAI-modelle wat Priority Processing ondersteun."
     status: "⚡ Priority Processing\n\nHuidige modus: `{mode}`\n\n_Gebruik:_ `/fast <normal|fast|status>`"
@@ -1597,6 +1617,8 @@ slash:
     description: "Wys of stel die permanente goedkeuringsmodus vir gevaarlike opdragte"
   reasoning:
     description: "Bestuur redenering-inspanning en -vertoon"
+  credentials:
+    description: "Kies hierdie sessie se OpenAI Codex-poelgeloofsbrief, of Outomaties"
   fast:
     description: "Vinnige modus — OpenAI Priority Processing / Anthropic Fast Mode (normal/fast/auto/cold/ultrafast)"
   skin:

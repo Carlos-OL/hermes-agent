@@ -1,13 +1,17 @@
 """Locked credential-pool administration and target resolution."""
 from __future__ import annotations
 
+import logging
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import replace
-from typing import Any, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Iterator, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from agent.credential_pool import PooledCredential
 
+logger = logging.getLogger(__name__)
 
 def _cleared_status_copy(entry: PooledCredential) -> PooledCredential:
     from agent.credential_pool import _CLEAR_STATUS
@@ -16,6 +20,84 @@ def _cleared_status_copy(entry: PooledCredential) -> PooledCredential:
     # "never had a status" — both read as bare None on disk (#89415).
     return replace(entry, **_CLEAR_STATUS, model_cooldowns=None, status_cleared_at=time.time(),
                    extra={k: v for k, v in entry.extra.items() if k != "failure_reason"})
+
+
+# (provider, entry id) that ``select`` serves first inside a ``preferred_pool_entry`` scope.
+_PREFERRED_ENTRY: ContextVar[Optional[Tuple[str, str]]] = ContextVar("credential_pool_preferred_entry", default=None)
+
+
+@contextmanager
+def preferred_pool_entry(provider: str, credential_id: Optional[str]) -> Iterator[None]:
+    """Within the block, ``select()`` on *provider*'s pools serves *credential_id* whenever it is
+    available (no strategy rotation, the request charged to that entry); when it is benched or
+    gone, ``select()`` runs the strategy as usual. ``credential_id=None`` is a no-op scope.
+
+    Args:
+        provider (str): Pool provider the preference applies to (e.g. ``openai-codex``).
+        credential_id (str | None): Stable pool entry id (never a token).
+
+    Called by:
+        - gateway.run_turn.GatewayTurnMixin._resolve_session_agent_runtime() - /credentials pin
+    """
+    token = _PREFERRED_ENTRY.set((provider, credential_id) if credential_id else None)
+    try:
+        yield
+    finally:
+        _PREFERRED_ENTRY.reset(token)
+
+
+def agent_pool_pin(agent: Any) -> Tuple[str, Optional[str]]:
+    """``(provider, entry id)`` of the session pin (``agent._credential_pool_pin``, set per turn by
+    the gateway's ``/credentials``) when it applies to the agent's live pool, else ``("", None)``.
+
+    Called by:
+        - return_to_pinned_entry()
+        - agent.agent_runtime_helpers.restore_primary_runtime() - post-fallback pool re-select
+    """
+    pin = getattr(agent, "_credential_pool_pin", None)
+    pool = getattr(agent, "_credential_pool", None)
+    if not pin or pool is None or str(getattr(pool, "provider", "") or "").strip().lower() != pin[0]:
+        return "", None
+    return pin[0], pin[1]
+
+
+def return_to_pinned_entry(agent: Any) -> bool:
+    """Put a live (e.g. gateway-cached) agent back on its session's pinned pool entry at turn start.
+
+    A 429 on the pin rotates the agent within the pool and automatic selection serves while the pin
+    cools down. The gateway's cached-agent signature hashes the key the agent was BUILT with, so once
+    the pin is eligible again the resolved runtime matches the cache and the agent is reused while
+    its client is still on the rotated entry; this swaps it back (``select_pinned``: cooldown
+    clearing and token refresh under the pool/auth-store locks, ``current`` pointed at the pin).
+    While the agent is on its pin, rotation reverts armed by earlier benches are dropped.
+
+    Args:
+        agent (AIAgent): Agent whose ``_credential_pool`` / ``_credential_pool_entry_id`` are live.
+
+    Returns:
+        bool: True when the agent is on its pin (already, or swapped now); False when no pin
+        applies or the pin is still cooling down (the caller's automatic revert logic then runs).
+
+    Called by:
+        - agent.agent_runtime_helpers._revert_credential_rotation() - every turn start
+
+    Calls:
+        - CredentialPool.select_pinned() - refresh + make the pin ``current``
+    """
+    _provider, pin = agent_pool_pin(agent)
+    if pin is None:
+        return False
+    if getattr(agent, "_credential_pool_entry_id", None) != pin:
+        try:
+            entry = agent._credential_pool.select_pinned(pin, model=getattr(agent, "model", None) or None)
+        except Exception as exc:  # health: allow BLE001 -- no traceback: refresh errors can carry auth payloads
+            logger.warning("Pinned credential %s could not be restored (%s)", pin[:6], type(exc).__name__)
+            return False
+        if entry is None or agent._swap_credential(entry) is False:
+            return False  # still cooling down (or its route cannot serve this model): automatic serves
+        logger.info("Pinned credential %s available again — session back on it", pin[:6])
+    agent._credential_pool_revert_id = None
+    return True
 
 
 class CredentialPoolAdminMixin:
@@ -52,6 +134,83 @@ class CredentialPoolAdminMixin:
                 ]
                 self._persist(status_cleared_ids=list(stale_ids))
             return len(stale)
+
+    def reclaim(self, credential_id: str, *, model: Optional[str] = None) -> Optional[PooledCredential]:
+        """Entry *credential_id* once its cooldown has lifted (cleared and token-refreshed the way
+        ``select`` would), else ``None``. Never bumps ``request_count`` or round-robin order: a
+        live session asking "may I go back?" every turn is not a request."""
+        with self._lock:
+            available, pending = self._available_entries(clear_expired=True, refresh=True, model=model)
+        if any(e.id == credential_id for e in pending):
+            self._refresh_pending_entries([e for e in pending if e.id == credential_id])
+            with self._lock:
+                available, _pending = self._available_entries(clear_expired=True, refresh=True, model=model)
+        return next((e for e in available if e.id == credential_id), None)
+
+    def select_pinned(
+        self, credential_id: str, *, model: Optional[str] = None, count: bool = False,
+    ) -> Optional[PooledCredential]:
+        """Make *credential_id* the pool's current entry for a session pin (gateway ``/credentials``).
+
+        Cleared and token-refreshed exactly as ``reclaim`` does (pool lock + auth-store lock), so a
+        pinned turn never reads a stale token; ``None`` while the entry is benched or gone. The
+        strategy's order is never touched (no round-robin rotation, no other entry charged);
+        pointing ``current`` at the pin keeps 429 recovery (``mark_exhausted_and_rotate``) and
+        ``entry_id_for_api_key`` attributed to the pinned row.
+
+        Args:
+            credential_id (str): Stable pool entry id (never a token).
+            model (str | None): Model for per-model cooldown checks.
+            count (bool): Charge the selection to the pinned entry's ``request_count``, as
+                ``select`` does for the entry it picks (True when the selection serves a request).
+
+        Returns:
+            PooledCredential | None: The refreshed pinned entry, or None when unavailable.
+
+        Called by:
+            - _select_preferred() - ``select`` inside a ``preferred_pool_entry`` scope (count=True)
+            - gateway.slash_commands_credentials.apply_session_credential_pin() - runtimes that were
+              resolved without a pool selection (count=False)
+
+        Calls:
+            - reclaim() - cooldown clearing + refresh under the normal locks
+        """
+        entry = self.reclaim(credential_id, model=model)
+        if entry is None:
+            return None
+        with self._lock:
+            entry = self._find(lambda e: e.id == credential_id) or entry
+            if count:
+                entry = self._adopt(entry, persist=False, request_count=entry.request_count + 1)
+            self._current_id = entry.id
+            return entry
+
+    def _select_preferred(self, *, model: Optional[str] = None) -> Optional[PooledCredential]:
+        """The ``preferred_pool_entry`` scope's entry for this pool's provider, if one is set and
+        available (selected via ``select_pinned``, charged to that entry), else None.
+
+        Called by:
+            - CredentialPool.select() - before the strategy runs
+        """
+        preferred = _PREFERRED_ENTRY.get()
+        if preferred is None or preferred[0] != self.provider:
+            return None
+        return self.select_pinned(preferred[1], model=model, count=True)
+
+    def fresh_entry(self, credential_id: str) -> Optional[PooledCredential]:
+        """Entry *credential_id* regardless of cooldown, its token refreshed first when it is
+        expiring (same locks as ``select``). ``None`` when the entry is gone or the refresh failed.
+        Never changes ``current``, ``request_count`` or the strategy's order.
+
+        Called by:
+            - gateway.slash_commands_credentials.session_credential_usage_view() - /usage for a
+              pinned entry that is cooling down
+        """
+        with self._lock:
+            entry = self._find(lambda e: e.id == credential_id)
+        if entry is None or not self._entry_needs_refresh(entry):
+            return entry
+        return self._refresh_entry(entry, force=False)
 
     def remove_index(self, index: int) -> Optional[PooledCredential]:
         with self._lock:

@@ -169,6 +169,26 @@ gateway:
     denied_plural: "❌ 指令已拒絕（{count} 條指令）。"
     denied_reason_singular: "❌ 指令已拒絕。 已將原因轉達給代理: \"{reason}\""
     denied_reason_plural: "❌ 指令已拒絕（{count} 條指令）。 已將原因轉達給代理: \"{reason}\""
+  credentials:
+    picker_title: "🔑 **OpenAI Codex 憑證**\n\n目前工作階段：{current}\n\n選擇憑證："
+    status_header: "🔑 **OpenAI Codex 憑證**\n\n目前工作階段：{current}"
+    automatic_line: "• 自動（池策略）{marker}"
+    entry_line: "{index}. {credential}{marker}"
+    usage: "_用法：_ `/credentials <id|number|auto>`"
+    choice_automatic: "自動（{strategy}）"
+    current_automatic: "自動（{strategy}）"
+    unnamed: "憑證"
+    none: "🔑 尚未設定 OpenAI Codex 池憑證。請在主機上執行 `hermes auth` 新增。"
+    load_failed: "⚠️ 無法讀取 OpenAI Codex 憑證池。請在主機上執行 `hermes auth list` 檢查。"
+    unknown: "⚠️ 沒有符合該選擇的 OpenAI Codex 憑證。傳送 /credentials 查看清單。"
+    pinned: "🔑 ✓ 目前工作階段現在使用 **{credential}**\n_（從下一則訊息開始生效）_"
+    automatic: "🔑 ✓ 目前工作階段已恢復為**自動**選擇憑證（{strategy}）\n_（從下一則訊息開始生效）_"
+    usage_line: "工作階段憑證：{credential}（{mode}）"
+    mode_pinned: "已固定"
+    mode_automatic: "自動"
+    mode_pin_waiting: "固定憑證冷卻期間自動選擇"
+    mode_pinned_cooling: "已固定，冷卻中；恢復可用前由自動選擇接手"
+    usage_pin_removed: "工作階段憑證：自動（固定的憑證已被刪除）"
   fast:
     not_supported: "⚡ /fast 僅適用於支援 Priority Processing 的 OpenAI 模型。"
     status: "⚡ Priority Processing\n\n目前模式：`{mode}`\n\n_用法：_ `/fast <normal|fast|status>`"
@@ -1597,6 +1617,8 @@ slash:
     description: "顯示或設定持久的危險指令批准模式"
   reasoning:
     description: "管理推理強度與顯示"
+  credentials:
+    description: "為目前工作階段選擇 OpenAI Codex 池憑證，或自動選擇"
   fast:
     description: "快速模式 — OpenAI Priority Processing／Anthropic Fast Mode（normal/fast/auto/cold）"
   skin:

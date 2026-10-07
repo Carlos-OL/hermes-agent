@@ -2588,9 +2588,9 @@ class MatrixAdapter(BasePlatformAdapter):
                 await self._redact_bot_model_picker_reactions(room_id, prompt)
             if confirmation:
                 await self.send(room_id, confirmation, reply_to=reacts_to)
-        except Exception as exc:
-            logger.error("Failed to %s from Matrix reaction: %s", verbs[0], exc)
-            await self.send(room_id, t("platform.matrix.picker.failed", action=t(verbs[1]), error=str(exc)),
+        except Exception as exc:  # health: allow BLE001 -- type name only: picker callback errors can carry auth/token payloads
+            logger.error("Failed to %s from Matrix reaction (%s)", verbs[0], type(exc).__name__)
+            await self.send(room_id, t("platform.matrix.picker.failed", action=t(verbs[1]), error=type(exc).__name__),
                             reply_to=reacts_to)
         return True
 

@@ -46,6 +46,9 @@ class ConversationState:
     one_turn_restore: Optional[Dict[str, Any]] = None  # /model --once snapshot
     reasoning_override: Optional[Dict[str, Any]] = None  # /reasoning override
     service_tier_override: Any = _UNSET_TIER  # /fast: "priority" or None; _UNSET_TIER = absent
+    # /credentials: pinned openai-codex pool entry id (never a token); None = pool strategy.
+    # Written through to SessionEntry.credential_pin and lazily rehydrated after a restart.
+    credential_pin: Optional[str] = None
     last_resolved_model: str = ""  # last successfully-resolved non-empty model
     queued_events: List[Any] = field(default_factory=list)  # /queue overflow FIFO (head in adapter)
     sidecar_notes: List[str] = field(default_factory=list)  # one-shot must-deliver notes

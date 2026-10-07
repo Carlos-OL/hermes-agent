@@ -169,6 +169,26 @@ gateway:
     denied_plural: "❌ رُفضت الأوامر ({count} أوامر)."
     denied_reason_singular: "❌ رُفض الأمر. السبب المُبلّغ للوكيل: \"{reason}\""
     denied_reason_plural: "❌ رُفضت الأوامر ({count} أوامر). السبب المُبلّغ للوكيل: \"{reason}\""
+  credentials:
+    picker_title: "🔑 **بيانات اعتماد OpenAI Codex**\n\nهذه الجلسة: {current}\n\nاختر بيانات الاعتماد:"
+    status_header: "🔑 **بيانات اعتماد OpenAI Codex**\n\nهذه الجلسة: {current}"
+    automatic_line: "• تلقائي (استراتيجية المجمّع){marker}"
+    entry_line: "{index}. {credential}{marker}"
+    usage: "_الاستخدام:_ `/credentials <id|number|auto>`"
+    choice_automatic: "تلقائي ({strategy})"
+    current_automatic: "تلقائي ({strategy})"
+    unnamed: "بيانات اعتماد"
+    none: "🔑 لا توجد بيانات اعتماد OpenAI Codex مهيأة في المجمّع. شغّل `hermes auth` على المضيف لإضافة واحدة."
+    load_failed: "⚠️ تعذّرت قراءة مجمّع بيانات اعتماد OpenAI Codex. شغّل `hermes auth list` على المضيف للتحقق منه."
+    unknown: "⚠️ لا توجد بيانات اعتماد OpenAI Codex تطابق هذا الاختيار. أرسل /credentials لعرض القائمة."
+    pinned: "🔑 ✓ تستخدم هذه الجلسة الآن **{credential}**\n_(يسري من الرسالة التالية)_"
+    automatic: "🔑 ✓ عادت هذه الجلسة إلى الاختيار **التلقائي** لبيانات الاعتماد ({strategy})\n_(يسري من الرسالة التالية)_"
+    usage_line: "بيانات اعتماد الجلسة: {credential} ({mode})"
+    mode_pinned: "مثبّتة"
+    mode_automatic: "تلقائي"
+    mode_pin_waiting: "تلقائي أثناء فترة تهدئة بيانات الاعتماد المثبّتة"
+    mode_pinned_cooling: "مثبّتة، في فترة تهدئة؛ يتولى الاختيار التلقائي حتى تصبح متاحة"
+    usage_pin_removed: "بيانات اعتماد الجلسة: تلقائي (أُزيلت بيانات الاعتماد المثبّتة)"
   fast:
     not_supported: "⚡ /fast متاح فقط لنماذج OpenAI التي تدعم المعالجة ذات الأولوية."
     status: "⚡ المعالجة ذات الأولوية\n\nالوضع الحالي: `{mode}`\n\n_الاستخدام:_ `/fast <normal|fast|status>`"
@@ -1597,6 +1617,8 @@ slash:
     description: "عرض أو تعيين وضع الموافقة الدائم على الأوامر الخطيرة"
   reasoning:
     description: "إدارة مستوى الاستدلال وطريقة عرضه"
+  credentials:
+    description: "اختر بيانات اعتماد مجمّع OpenAI Codex لهذه الجلسة، أو تلقائي"
   fast:
     description: "الوضع السريع — OpenAI Priority Processing / Anthropic Fast Mode (normal/fast/auto/cold/ultrafast)"
   skin:

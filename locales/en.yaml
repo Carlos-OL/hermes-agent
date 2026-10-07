@@ -172,6 +172,26 @@ gateway:
     denied_plural: "❌ Commands denied ({count} commands)."
     denied_reason_singular: "❌ Command denied. Reason relayed to the agent: \"{reason}\""
     denied_reason_plural: "❌ Commands denied ({count} commands). Reason relayed to the agent: \"{reason}\""
+  credentials:
+    picker_title: "🔑 **OpenAI Codex credential**\n\nThis session: {current}\n\nPick a credential:"
+    status_header: "🔑 **OpenAI Codex credentials**\n\nThis session: {current}"
+    automatic_line: "• Automatic (pool strategy){marker}"
+    entry_line: "{index}. {credential}{marker}"
+    usage: "_Usage:_ `/credentials <id|number|auto>`"
+    choice_automatic: "Automatic ({strategy})"
+    current_automatic: "Automatic ({strategy})"
+    unnamed: "credential"
+    none: "🔑 No OpenAI Codex pool credentials are configured. Run `hermes auth` on the host to add one."
+    load_failed: "⚠️ Couldn't read the OpenAI Codex credential pool. Run `hermes auth list` on the host to check it."
+    unknown: "⚠️ No OpenAI Codex credential matches that selection. Send /credentials to see the list."
+    pinned: "🔑 ✓ This session now uses **{credential}**\n_(takes effect on the next message)_"
+    automatic: "🔑 ✓ This session is back on **Automatic** credential selection ({strategy})\n_(takes effect on the next message)_"
+    usage_line: "Session credential: {credential} ({mode})"
+    mode_pinned: "pinned"
+    mode_automatic: "automatic"
+    mode_pin_waiting: "automatic while the pinned credential cools down"
+    mode_pinned_cooling: "pinned, cooling down; automatic selection serves until it is available"
+    usage_pin_removed: "Session credential: automatic (the pinned credential was removed)"
   fast:
     not_supported: "⚡ /fast is only available for OpenAI models that support Priority Processing."
     status: "⚡ Priority Processing\n\nCurrent mode: `{mode}`\n\n_Usage:_ `/fast <normal|fast|auto|cold|ultrafast|status>`"
@@ -1668,6 +1688,8 @@ slash:
     description: "Show or set the persistent dangerous-command approval mode"
   reasoning:
     description: "Manage reasoning effort and display"
+  credentials:
+    description: "Pick this session's OpenAI Codex pool credential, or Automatic"
   fast:
     description: "Fast mode — OpenAI Priority Processing / Anthropic Fast Mode (normal/fast/auto/cold/ultrafast)"
   skin:

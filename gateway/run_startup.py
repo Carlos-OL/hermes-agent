@@ -1837,6 +1837,12 @@ class GatewayStartupMixin:
         )
         if switched is None:
             raise RuntimeError(f"could not switch session key {session_key} → {cli_session_id}")
+        # switch_session dropped the persisted /credentials pin (a different conversation now owns the
+        # key); drop the in-memory one too, or session_credential_pin() keeps serving it. Only the pin:
+        # handoff is not a full boundary, so /model overrides and the rest of the scope stay.
+        state = self._peek_session_state(session_key)
+        if state is not None:
+            state.conversation.credential_pin = None
         # Evict the cached AIAgent (rebuild against the CLI session_id, like /resume) and clear stale
         # running-agent state so the synthetic turn isn't queued behind it.
         self._evict_cached_agent(session_key)

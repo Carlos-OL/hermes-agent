@@ -16,6 +16,7 @@ from agent.i18n import t
 from gateway.config import Platform
 from gateway.platforms.event import MessageEvent
 from gateway.session_transcript import TranscriptReadError
+from gateway.slash_commands_credentials import session_credential_usage_view
 from hermes_cli.status_report import build_status_fields
 
 # Log-record parity with gateway/run.py and the origin module.
@@ -565,7 +566,9 @@ class GatewayStatusCommandsMixin:
     async def _handle_usage_command(self, event: MessageEvent) -> str:
         """Handle /usage -- token usage for the current session (live or cached agent) plus
         account/credit blocks; ``/usage reset [--force]`` redeems a banked Codex reset credit."""
-        source = event.source
+        # Normalized like /credentials and /model (#30479): the key the session's turns (and its
+        # /credentials pin) actually live under on Telegram forum topics.
+        source = await asyncio.to_thread(self._normalize_source_for_session_key, event.source)
         session_key = self._session_key_for_source(source)
         raw_args = event.get_command_args().strip()
         args = [a.lower() for a in raw_args.split()] if raw_args else []
@@ -588,6 +591,12 @@ class GatewayStatusCommandsMixin:
             # fall back to the configured provider, as /status does, so account limits such as
             # Codex subscription windows still render from on-disk credentials (#15167).
             provider = await _quiet(lambda: asyncio.to_thread(_configured_provider)) or None
+        # /credentials: name the session's real credential; a pinned session with no resident agent
+        # fetches (and redeems) with the pinned entry, not whichever one the strategy would pick.
+        pin_key, pin_url, credential_line = await _quiet(lambda: asyncio.to_thread(
+            session_credential_usage_view, self, session_key, agent, provider), (None, None, None))
+        if pin_key:
+            api_key, base_url = pin_key, pin_url or base_url
         if wants_reset:
             if str(provider or "").strip().lower() != "openai-codex":
                 return t("gateway.usage.reset_wrong_provider")
@@ -605,6 +614,8 @@ class GatewayStatusCommandsMixin:
         account_lines = (
             render_account_usage_lines(account_snapshot, markdown=True) if account_snapshot else []
         )
+        if credential_line:
+            account_lines = [*account_lines, credential_line]
 
         # Nous credits + monthly-grant gauge (shared with CLI/TUI). Gates on "a Nous account is
         # logged in" — NOT the inference provider — so a Nous user inferring elsewhere still sees

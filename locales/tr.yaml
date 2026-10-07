@@ -169,6 +169,26 @@ gateway:
     denied_plural: "❌ Komutlar reddedildi ({count} komut)."
     denied_reason_singular: "❌ Komut reddedildi. Gerekçe ajana iletildi: \"{reason}\""
     denied_reason_plural: "❌ Komutlar reddedildi ({count} komut). Gerekçe ajana iletildi: \"{reason}\""
+  credentials:
+    picker_title: "🔑 **OpenAI Codex kimlik bilgisi**\n\nBu oturum: {current}\n\nBir kimlik bilgisi seçin:"
+    status_header: "🔑 **OpenAI Codex kimlik bilgileri**\n\nBu oturum: {current}"
+    automatic_line: "• Otomatik (havuz stratejisi){marker}"
+    entry_line: "{index}. {credential}{marker}"
+    usage: "_Kullanım:_ `/credentials <id|number|auto>`"
+    choice_automatic: "Otomatik ({strategy})"
+    current_automatic: "Otomatik ({strategy})"
+    unnamed: "kimlik bilgisi"
+    none: "🔑 Yapılandırılmış OpenAI Codex havuz kimlik bilgisi yok. Eklemek için ana makinede `hermes auth` çalıştırın."
+    load_failed: "⚠️ OpenAI Codex kimlik bilgisi havuzu okunamadı. Kontrol etmek için ana makinede `hermes auth list` çalıştırın."
+    unknown: "⚠️ Bu seçimle eşleşen bir OpenAI Codex kimlik bilgisi yok. Listeyi görmek için /credentials gönderin."
+    pinned: "🔑 ✓ Bu oturum artık **{credential}** kullanıyor\n_(bir sonraki mesajdan itibaren geçerli)_"
+    automatic: "🔑 ✓ Bu oturum yeniden **otomatik** kimlik bilgisi seçimine döndü ({strategy})\n_(bir sonraki mesajdan itibaren geçerli)_"
+    usage_line: "Oturum kimlik bilgisi: {credential} ({mode})"
+    mode_pinned: "sabitlendi"
+    mode_automatic: "otomatik"
+    mode_pin_waiting: "sabitlenen kimlik bilgisi soğurken otomatik"
+    mode_pinned_cooling: "sabitlendi, soğuma süresinde; kullanılabilir olana kadar otomatik seçim devrede"
+    usage_pin_removed: "Oturum kimlik bilgisi: otomatik (sabitlenen kimlik bilgisi kaldırıldı)"
   fast:
     not_supported: "⚡ /fast yalnızca Priority Processing destekleyen OpenAI modellerinde kullanılabilir."
     status: "⚡ Priority Processing\n\nMevcut mod: `{mode}`\n\n_Kullanım:_ `/fast <normal|fast|status>`"
@@ -1597,6 +1617,8 @@ slash:
     description: "Kalıcı tehlikeli komut onay modunu göster veya ayarla"
   reasoning:
     description: "Akıl yürütme düzeyini ve gösterimini yönet"
+  credentials:
+    description: "Bu oturumun OpenAI Codex havuz kimlik bilgisini seçin veya Otomatik"
   fast:
     description: "Hızlı mod — OpenAI Priority Processing / Anthropic Fast Mode (normal/fast/auto/cold/ultrafast)"
   skin:

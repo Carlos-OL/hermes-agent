@@ -169,6 +169,26 @@ gateway:
     denied_plural: "❌ Befehle abgelehnt ({count} Befehle)."
     denied_reason_singular: "❌ Befehl abgelehnt. Grund an den Agenten weitergeleitet: \"{reason}\""
     denied_reason_plural: "❌ Befehle abgelehnt ({count} Befehle). Grund an den Agenten weitergeleitet: \"{reason}\""
+  credentials:
+    picker_title: "🔑 **OpenAI-Codex-Zugangsdaten**\n\nDiese Sitzung: {current}\n\nZugangsdaten auswählen:"
+    status_header: "🔑 **OpenAI-Codex-Zugangsdaten**\n\nDiese Sitzung: {current}"
+    automatic_line: "• Automatisch (Pool-Strategie){marker}"
+    entry_line: "{index}. {credential}{marker}"
+    usage: "_Verwendung:_ `/credentials <id|number|auto>`"
+    choice_automatic: "Automatisch ({strategy})"
+    current_automatic: "Automatisch ({strategy})"
+    unnamed: "Zugangsdaten"
+    none: "🔑 Es sind keine OpenAI-Codex-Pool-Zugangsdaten eingerichtet. Führe `hermes auth` auf dem Host aus, um welche hinzuzufügen."
+    load_failed: "⚠️ Der OpenAI-Codex-Zugangsdaten-Pool konnte nicht gelesen werden. Prüfe ihn mit `hermes auth list` auf dem Host."
+    unknown: "⚠️ Keine OpenAI-Codex-Zugangsdaten passen zu dieser Auswahl. Sende /credentials, um die Liste zu sehen."
+    pinned: "🔑 ✓ Diese Sitzung verwendet jetzt **{credential}**\n_(gilt ab der nächsten Nachricht)_"
+    automatic: "🔑 ✓ Diese Sitzung nutzt wieder die **automatische** Auswahl der Zugangsdaten ({strategy})\n_(gilt ab der nächsten Nachricht)_"
+    usage_line: "Zugangsdaten der Sitzung: {credential} ({mode})"
+    mode_pinned: "fixiert"
+    mode_automatic: "automatisch"
+    mode_pin_waiting: "automatisch, solange die fixierten Zugangsdaten abkühlen"
+    mode_pinned_cooling: "fixiert, kühlt ab; bis dahin greift die automatische Auswahl"
+    usage_pin_removed: "Zugangsdaten der Sitzung: automatisch (die fixierten Zugangsdaten wurden entfernt)"
   fast:
     not_supported: "⚡ /fast ist nur für OpenAI-Modelle mit Priority Processing verfügbar."
     status: "⚡ Priority Processing\n\nAktueller Modus: `{mode}`\n\n_Verwendung:_ `/fast <normal|fast|status>`"
@@ -1597,6 +1617,8 @@ slash:
     description: "Dauerhaften Genehmigungsmodus für gefährliche Befehle anzeigen oder festlegen"
   reasoning:
     description: "Reasoning-Stärke und -Anzeige verwalten"
+  credentials:
+    description: "OpenAI-Codex-Pool-Zugangsdaten für diese Sitzung wählen oder Automatisch"
   fast:
     description: "Schnellmodus — OpenAI Priority Processing / Anthropic Fast Mode (normal/fast/auto/cold/ultrafast)"
   skin:

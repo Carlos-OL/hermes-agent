@@ -6874,9 +6874,9 @@ def _define_discord_view_classes() -> None:
             value = interaction.data.get("values", [""])[0]
             try:
                 result_text = await self.on_choice_selected(str(interaction.channel_id), value)
-            except Exception as exc:
-                logger.error("Choice picker selection failed: %s", exc)
-                result_text = t("platform.discord.picker.choice_error", error=str(exc))
+            except Exception as exc:  # health: allow BLE001 -- type name only: callback errors can carry auth/token payloads
+                logger.error("Choice picker selection failed (%s)", type(exc).__name__)
+                result_text = t("platform.discord.picker.choice_error", error=type(exc).__name__)
             embed = discord.Embed(description=result_text, color=discord.Color.green())
             self.clear_items()
             self.stop()

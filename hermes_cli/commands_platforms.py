@@ -114,7 +114,7 @@ _TELEGRAM_MENU_PRIORITY = (
     "help", "new", "stop", "status", "egress", "resume", "sessions", "model",
     "debug", "restart", "update", "verbose", "commands",
     "approve", "deny", "queue", "steer", "bg", "btw",
-    "reasoning", "usage", "platforms", "platform", "profile", "whoami")
+    "reasoning", "usage", "credentials", "platforms", "platform", "profile", "whoami")
 
 
 def _telegram_command_menu_config() -> dict[str, Any]:
@@ -383,7 +383,7 @@ _SLACK_RESERVED_COMMANDS = frozenset({
 # parity test reads this set. Aliases are never pinned ahead of canonicals.
 _SLACK_VIA_HERMES_ONLY = frozenset({
     "topup", "moa", "debug", "egress", "init", "version", "diff", "update", "heartbeat",
-    "refine", "review", "pause", "whoami", "platform", "insights", "login"})
+    "refine", "review", "pause", "whoami", "platform", "insights", "login", "credentials"})
 
 
 def _sanitize_slack_name(raw: str) -> str:

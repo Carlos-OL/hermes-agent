@@ -169,6 +169,26 @@ gateway:
     denied_plural: "❌ Команды отклонены ({count} команд)."
     denied_reason_singular: "❌ Команда отклонена. Причина передана агенту: \"{reason}\""
     denied_reason_plural: "❌ Команды отклонены ({count} команд). Причина передана агенту: \"{reason}\""
+  credentials:
+    picker_title: "🔑 **Учётные данные OpenAI Codex**\n\nЭтот сеанс: {current}\n\nВыберите учётные данные:"
+    status_header: "🔑 **Учётные данные OpenAI Codex**\n\nЭтот сеанс: {current}"
+    automatic_line: "• Автоматически (стратегия пула){marker}"
+    entry_line: "{index}. {credential}{marker}"
+    usage: "_Использование:_ `/credentials <id|number|auto>`"
+    choice_automatic: "Автоматически ({strategy})"
+    current_automatic: "Автоматически ({strategy})"
+    unnamed: "учётные данные"
+    none: "🔑 В пуле нет учётных данных OpenAI Codex. Выполните `hermes auth` на хосте, чтобы добавить их."
+    load_failed: "⚠️ Не удалось прочитать пул учётных данных OpenAI Codex. Проверьте его командой `hermes auth list` на хосте."
+    unknown: "⚠️ Нет учётных данных OpenAI Codex, соответствующих этому выбору. Отправьте /credentials, чтобы увидеть список."
+    pinned: "🔑 ✓ Теперь этот сеанс использует **{credential}**\n_(вступит в силу со следующего сообщения)_"
+    automatic: "🔑 ✓ Этот сеанс снова использует **автоматический** выбор учётных данных ({strategy})\n_(вступит в силу со следующего сообщения)_"
+    usage_line: "Учётные данные сеанса: {credential} ({mode})"
+    mode_pinned: "закреплены"
+    mode_automatic: "автоматически"
+    mode_pin_waiting: "автоматически, пока закреплённые учётные данные остывают"
+    mode_pinned_cooling: "закреплены, на паузе; до их освобождения работает автоматический выбор"
+    usage_pin_removed: "Учётные данные сеанса: автоматически (закреплённые учётные данные удалены)"
   fast:
     not_supported: "⚡ /fast доступен только для моделей OpenAI, поддерживающих Priority Processing."
     status: "⚡ Priority Processing\n\nТекущий режим: `{mode}`\n\n_Использование:_ `/fast <normal|fast|status>`"
@@ -1597,6 +1617,8 @@ slash:
     description: "Показать или задать постоянный режим одобрения опасных команд"
   reasoning:
     description: "Управлять уровнем и отображением рассуждений"
+  credentials:
+    description: "Выбрать учётные данные пула OpenAI Codex для этого сеанса или автоматический выбор"
   fast:
     description: "Быстрый режим — OpenAI Priority Processing / Anthropic Fast Mode (normal/fast/auto/cold/ultrafast)"
   skin:

@@ -317,6 +317,8 @@ COMMAND_REGISTRY: list[CommandDef] = [
                gateway_only=True, busy_policy="dispatch", desktop="terminal"),
     CommandDef("usage", "Show token usage and rate limits; `reset` redeems a banked Codex limit reset", "Info",
                args_hint="[reset [--force]]"),
+    CommandDef("credentials", "Pick this session's OpenAI Codex pool credential, or Automatic", "Info",
+               gateway_only=True, args_hint="[id|number|auto]"),
     CommandDef("subscription", "View your Nous plan and change it in the browser", "Info",
                cli_only=True, aliases=("upgrade",)),
     CommandDef("login", "Sign in with a Nous account (keeps your connectors)", "Info",
