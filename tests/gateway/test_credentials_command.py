@@ -122,6 +122,7 @@ def test_credentials_is_a_registered_gateway_command_in_the_telegram_menu():
     assert "credentials" in dict(telegram_bot_commands(include_plugins=False))
     menu, _hidden = telegram_menu_commands(max_commands=60)
     assert "credentials" in dict(menu)
+    assert [name for name, _description in menu].index("credentials") < 10
     runner = _runner(None)
     assert runner._gateway_idle_command_handlers()["credentials"] == runner._handle_credentials_command
 

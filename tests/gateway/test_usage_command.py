@@ -2,6 +2,8 @@ from hermes_state import AsyncSessionDB
 """Tests for gateway /usage command — agent cache lookup and output fields."""
 
 import threading
+from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -230,6 +232,46 @@ class TestUsageAccountSection:
 
         account_call = next(c for c in calls if c["args"] == ("nvidia",))
         assert account_call["kwargs"]["base_url"] == "https://integrate.api.nvidia.com/v1/"
+
+    @pytest.mark.asyncio
+    async def test_usage_always_shows_every_codex_pool_account_while_active_provider_is_nous(self, monkeypatch):
+        """Codex subscription limits are account inventory, not an active-route-only detail."""
+        from agent.account_usage import AccountUsageSnapshot, AccountUsageWindow
+        import gateway.slash_commands_status as status_mod
+
+        agent = _make_mock_agent(
+            provider="nous", model="openai/gpt-6-astra",
+            base_url="https://inference-api.nousresearch.com/v1", api_key="nous-token")
+        agent.get_rate_limit_state.return_value.has_data = False
+        runner = _make_runner(SK, cached_agent=agent)
+        targets = [
+            SimpleNamespace(display="Personal · aaa111", api_key="token-a", base_url="https://chatgpt.com/backend-api/codex"),
+            SimpleNamespace(display="Work · bbb222", api_key="token-b", base_url="https://chatgpt.com/backend-api/codex"),
+        ]
+        calls = []
+
+        def _fetch(provider, *, base_url=None, api_key=None, read_only=False, **_kwargs):
+            calls.append((provider, api_key, read_only))
+            if provider != "openai-codex":
+                return None
+            used = 10 if api_key == "token-a" else 70
+            return AccountUsageSnapshot(
+                provider="openai-codex", source="test", fetched_at=datetime.now(timezone.utc),
+                plan="Pro", windows=(AccountUsageWindow("Weekly", used_percent=used),))
+
+        monkeypatch.setattr(status_mod, "load_codex_usage_targets", lambda: targets)
+        monkeypatch.setattr(status_mod, "fetch_account_usage", _fetch)
+        monkeypatch.setattr("agent.account_usage.nous_credits_lines", lambda markdown=True: ["Nous credits block"])
+
+        result = await runner._handle_usage_command(MagicMock())
+
+        assert "OpenAI Codex limits · Personal · aaa111" in result
+        assert "OpenAI Codex limits · Work · bbb222" in result
+        assert "Weekly: 90% remaining" in result
+        assert "Weekly: 30% remaining" in result
+        assert "Nous credits block" in result
+        assert ("openai-codex", "token-a", True) in calls
+        assert ("openai-codex", "token-b", True) in calls
 
 
 class TestUsageReset:

@@ -9,6 +9,7 @@ import hashlib
 import os
 import re
 import time
+from dataclasses import replace
 from typing import Any
 
 from agent.account_usage import fetch_account_usage, render_account_usage_lines
@@ -16,7 +17,7 @@ from agent.i18n import t
 from gateway.config import Platform
 from gateway.platforms.event import MessageEvent
 from gateway.session_transcript import TranscriptReadError
-from gateway.slash_commands_credentials import session_credential_usage_view
+from gateway.slash_commands_credentials import load_codex_usage_targets, session_credential_usage_view
 from hermes_cli.status_report import build_status_fields
 
 # Log-record parity with gateway/run.py and the origin module.
@@ -614,6 +615,37 @@ class GatewayStatusCommandsMixin:
         account_lines = (
             render_account_usage_lines(account_snapshot, markdown=True) if account_snapshot else []
         )
+
+        # Codex subscription limits stay useful while this session runs through Nous or another
+        # provider. Probe every configured pool account independently and read-only: one exhausted
+        # account must not hide a healthy sibling, and quota reads must never rotate the session.
+        # Concurrent probes make N accounts cost one provider timeout rather than N timeouts.
+        codex_targets = await _quiet(lambda: asyncio.to_thread(load_codex_usage_targets), [])
+
+        async def _codex_snapshot(target):
+            return await _quiet(lambda: asyncio.to_thread(
+                fetch_account_usage, "openai-codex", base_url=target.base_url,
+                api_key=target.api_key, read_only=True))
+
+        codex_snapshots = await asyncio.gather(
+            *(_codex_snapshot(target) for target in codex_targets)) if codex_targets else []
+        codex_blocks = []
+        for target, snapshot in zip(codex_targets, codex_snapshots):
+            if snapshot:
+                titled = replace(snapshot, title=f"OpenAI Codex limits · {target.display}")
+                codex_blocks.append(render_account_usage_lines(titled, markdown=True))
+        if codex_blocks:
+            pooled_lines = []
+            for block in codex_blocks:
+                if pooled_lines:
+                    pooled_lines.append("")
+                pooled_lines.extend(block)
+            # The active Codex snapshot duplicates one pool row. Replace it; for another active
+            # provider retain that provider's limits and append the complete Codex pool.
+            if str(provider or "").strip().lower() == "openai-codex":
+                account_lines = pooled_lines
+            else:
+                account_lines = [*account_lines, *([""] if account_lines else []), *pooled_lines]
         if credential_line:
             account_lines = [*account_lines, credential_line]
 

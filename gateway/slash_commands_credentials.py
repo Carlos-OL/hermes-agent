@@ -35,6 +35,14 @@ class CredentialChoice(NamedTuple):
     display: str
 
 
+class CredentialUsageTarget(NamedTuple):
+    """Internal-only quota probe target. ``api_key`` is never rendered or logged."""
+
+    display: str
+    api_key: str
+    base_url: Optional[str]
+
+
 def short_credential_id(entry_id: Any) -> str:
     """First characters of a pool entry id (pool ids are short random hex, never secrets)."""
     return str(entry_id or "")[:_SHORT_ID_LEN]
@@ -91,6 +99,24 @@ def load_codex_choices() -> Tuple[List[CredentialChoice], str]:
     from agent.credential_pool import get_pool_strategy
     choices = [CredentialChoice(e.id, credential_display(e)) for e in load_codex_pool().entries()]
     return choices, get_pool_strategy(CODEX_PROVIDER)
+
+
+def load_codex_usage_targets() -> List[CredentialUsageTarget]:
+    """Fresh quota-probe targets for every Codex pool row, without selecting or rotating.
+
+    Refreshing an expiring OAuth token is allowed and persisted through the pool's normal locks;
+    the strategy's current entry and request counters are untouched. Returned tokens are consumed
+    only by ``/usage``'s read-only fetcher and must never be included in user-visible output.
+    """
+    pool = load_codex_pool()
+    targets: List[CredentialUsageTarget] = []
+    for listed in pool.entries():
+        entry = pool.fresh_entry(listed.id) or listed
+        api_key = str(entry.runtime_api_key or "").strip()
+        if api_key:
+            targets.append(CredentialUsageTarget(
+                credential_display(entry), api_key, entry.runtime_base_url or None))
+    return targets
 
 
 def _session_store(runner: Any):
