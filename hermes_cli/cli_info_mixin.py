@@ -712,13 +712,11 @@ class CLIInfoMixin:
                 print(fallback)
 
         if not self.agent:
+            self._print_stored_session_usage()
             _credits_or(t("cli.shared.no_active_agent"))
             return
         agent = self.agent
         calls = agent.session_api_calls
-        if calls == 0:
-            _credits_or(t("cli.usage.no_api_calls"))
-            return
 
         rl_state = agent.get_rate_limit_state()
         if rl_state and rl_state.has_data:
@@ -773,33 +771,69 @@ class CLIInfoMixin:
         else:
             logging.getLogger().setLevel(logging.INFO)
 
-    def _print_account_limits(self) -> bool:
-        """Provider account limits block for `/usage`; True if anything printed.
-
-        Uses the live agent's route when present, else the CLI's own configured provider (the
-        TUI/Desktop slash-worker runs without an agent). Fetched off-thread with a hard timeout so
-        slow provider APIs don't hang the prompt; failures are non-fatal. Lazy import: pulls the
-        OpenAI SDK chain.
-        """
-        provider = self._agent_or_self("provider")
-        if not provider:
-            return False
-        from agent.account_usage import fetch_account_usage, render_account_usage_lines
-        account_snapshot = None
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as _pool:
+    def _print_stored_session_usage(self) -> None:
+        """Read persisted totals without constructing an agent or resetting a resumed session."""
+        db = getattr(self, "_session_db", None)
+        sid = getattr(self, "session_id", None)
+        row = {}
+        if db is not None and sid:
             try:
-                account_snapshot = _pool.submit(
-                    fetch_account_usage, provider, base_url=self._agent_or_self("base_url"),
-                    api_key=self._agent_or_self("api_key"),
-                ).result(timeout=10.0)
-            except (concurrent.futures.TimeoutError, Exception):
-                account_snapshot = None
-        account_lines = [f"  {line}" for line in render_account_usage_lines(account_snapshot)]
+                row = db.get_session(sid) or {}
+            except Exception:
+                logging.getLogger(__name__).debug("Could not read stored session usage", exc_info=True)
+        input_tokens = row.get("input_tokens", 0) or 0
+        output_tokens = row.get("output_tokens", 0) or 0
+        prompt_tokens = input_tokens + (row.get("cache_read_tokens", 0) or 0) + (row.get("cache_write_tokens", 0) or 0)
+        print(f"  {t('cli.usage.header_session')}")
+        print(f"  {'─' * 40}")
+        print(f"  {t('cli.usage.label_model'):<26} {self.model}")
+        values = (
+            ("label_input_tokens", input_tokens), ("label_output_tokens", output_tokens),
+            ("label_reasoning_subset", row.get("reasoning_tokens", 0) or 0),
+            ("label_prompt_tokens_total", prompt_tokens), ("label_completion_tokens", output_tokens),
+            ("label_total_tokens", prompt_tokens + output_tokens),
+            ("label_api_calls", row.get("api_call_count", 0) or 0),
+        )
+        for label, value in values:
+            print(f"  {t('cli.usage.' + label):<26} {value:>10,}")
+        print(f"  {'─' * 40}")
+        print(f"  {t('cli.usage.label_messages'):<17} {len(self.conversation_history)}")
+
+    def _print_account_limits(self) -> bool:
+        """Active provider limits plus every Codex account, bounded and profile-scoped."""
+        from contextvars import copy_context
+        from agent.account_usage import fetch_account_usage, render_account_usage_lines
+        from gateway.slash_commands_credentials import codex_pool_usage_lines
+        from tools.daemon_pool import DaemonThreadPoolExecutor
+
+        provider = self._agent_or_self("provider")
+
+        def _fetch_lines():
+            lines = []
+            is_codex = str(provider or "").strip().lower() == "openai-codex"
+            if provider and not is_codex:
+                lines = render_account_usage_lines(fetch_account_usage(
+                    provider, base_url=self._agent_or_self("base_url"), api_key=self._agent_or_self("api_key")))
+            codex_lines = codex_pool_usage_lines()
+            if is_codex and not codex_lines:
+                codex_lines = render_account_usage_lines(fetch_account_usage(
+                    provider, base_url=self._agent_or_self("base_url"),
+                    api_key=self._agent_or_self("api_key"), read_only=True))
+            return lines + ([""] if lines and codex_lines else []) + codex_lines
+
+        pool = DaemonThreadPoolExecutor(max_workers=1)
+        try:
+            account_lines = pool.submit(copy_context().run, _fetch_lines).result(timeout=10.0)
+        except Exception:  # health: allow BLE001 -- quota failures are non-fatal; exceptions can echo credentials
+            account_lines = []
+        finally:
+            # Executor context managers join timed-out workers, defeating the wall-clock bound.
+            pool.shutdown(wait=False)
         if not account_lines:
             return False
         print()
         for line in account_lines:
-            print(line)
+            print(f"  {line}")
         return True
 
     def _show_insights(self, command: str = "/insights"):
